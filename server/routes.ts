@@ -39,6 +39,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const project = await storage.getProject(req.params.id);
       if (!project) return res.status(404).json({ error: "Project not found" });
+      if (project.userId !== req.user!.id) return res.status(404).json({ error: "Project not found" });
       res.json(project);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch project" });
@@ -57,9 +58,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.patch("/api/projects/:id", isAuthenticated, async (req, res) => {
     try {
-      const project = await storage.updateProject(req.params.id, req.body);
+      const project = await storage.getProject(req.params.id);
       if (!project) return res.status(404).json({ error: "Project not found" });
-      res.json(project);
+      if (project.userId !== req.user!.id) return res.status(404).json({ error: "Project not found" });
+      const updated = await storage.updateProject(req.params.id, req.body);
+      res.json(updated);
     } catch (error) {
       res.status(500).json({ error: "Failed to update project" });
     }
@@ -67,8 +70,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.delete("/api/projects/:id", isAuthenticated, async (req, res) => {
     try {
-      const deleted = await storage.deleteProject(req.params.id);
-      if (!deleted) return res.status(404).json({ error: "Project not found" });
+      const project = await storage.getProject(req.params.id);
+      if (!project) return res.status(404).json({ error: "Project not found" });
+      if (project.userId !== req.user!.id) return res.status(404).json({ error: "Project not found" });
+      await storage.deleteProject(req.params.id);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete project" });
@@ -98,8 +103,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.delete("/api/assets/:id", isAuthenticated, async (req, res) => {
     try {
-      const deleted = await storage.deleteAsset(req.params.id);
-      if (!deleted) return res.status(404).json({ error: "Asset not found" });
+      const asset = await storage.getAsset(req.params.id);
+      if (!asset) return res.status(404).json({ error: "Asset not found" });
+      if (asset.userId !== req.user!.id) return res.status(404).json({ error: "Asset not found" });
+      await storage.deleteAsset(req.params.id);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete asset" });
@@ -128,8 +135,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.delete("/api/conversations/:id", isAuthenticated, async (req, res) => {
     try {
-      const deleted = await storage.deleteConversation(req.params.id);
-      if (!deleted) return res.status(404).json({ error: "Conversation not found" });
+      const conversation = await storage.getConversation(req.params.id);
+      if (!conversation) return res.status(404).json({ error: "Conversation not found" });
+      if (conversation.userId !== req.user!.id) return res.status(404).json({ error: "Conversation not found" });
+      await storage.deleteConversation(req.params.id);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete conversation" });
@@ -139,6 +148,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ===== Messages =====
   app.get("/api/conversations/:conversationId/messages", isAuthenticated, async (req, res) => {
     try {
+      const conversation = await storage.getConversation(req.params.conversationId);
+      if (!conversation) return res.status(404).json({ error: "Conversation not found" });
+      if (conversation.userId !== req.user!.id) return res.status(404).json({ error: "Conversation not found" });
       const messages = await storage.getMessages(req.params.conversationId);
       res.json(messages);
     } catch (error) {
@@ -148,6 +160,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/conversations/:conversationId/messages", isAuthenticated, async (req, res) => {
     try {
+      const conversation = await storage.getConversation(req.params.conversationId);
+      if (!conversation) return res.status(404).json({ error: "Conversation not found" });
+      if (conversation.userId !== req.user!.id) return res.status(404).json({ error: "Conversation not found" });
       const data = insertMessageSchema.parse({
         ...req.body,
         conversationId: req.params.conversationId,
@@ -280,8 +295,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.delete("/api/memories/:id", isAuthenticated, async (req, res) => {
     try {
-      const deleted = await storage.deleteMemory(req.params.id);
-      if (!deleted) return res.status(404).json({ error: "Memory not found" });
+      const memory = await storage.getMemory(req.params.id);
+      if (!memory) return res.status(404).json({ error: "Memory not found" });
+      if (memory.userId !== req.user!.id) return res.status(404).json({ error: "Memory not found" });
+      await storage.deleteMemory(req.params.id);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete memory" });
@@ -311,6 +328,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const job = await storage.getJob(req.params.id);
       if (!job) return res.status(404).json({ error: "Job not found" });
+      if (job.userId !== req.user!.id) return res.status(404).json({ error: "Job not found" });
       res.json(job);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch job" });
@@ -349,9 +367,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.patch("/api/workflows/:id", isAuthenticated, async (req, res) => {
     try {
-      const workflow = await storage.updateWorkflow(req.params.id, req.body);
+      const workflow = await storage.getWorkflow(req.params.id);
       if (!workflow) return res.status(404).json({ error: "Workflow not found" });
-      res.json(workflow);
+      if (workflow.userId !== req.user!.id) return res.status(404).json({ error: "Workflow not found" });
+      const updated = await storage.updateWorkflow(req.params.id, req.body);
+      res.json(updated);
     } catch (error) {
       res.status(500).json({ error: "Failed to update workflow" });
     }
@@ -359,8 +379,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.delete("/api/workflows/:id", isAuthenticated, async (req, res) => {
     try {
-      const deleted = await storage.deleteWorkflow(req.params.id);
-      if (!deleted) return res.status(404).json({ error: "Workflow not found" });
+      const workflow = await storage.getWorkflow(req.params.id);
+      if (!workflow) return res.status(404).json({ error: "Workflow not found" });
+      if (workflow.userId !== req.user!.id) return res.status(404).json({ error: "Workflow not found" });
+      await storage.deleteWorkflow(req.params.id);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete workflow" });
@@ -389,8 +411,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.delete("/api/voice-models/:id", isAuthenticated, async (req, res) => {
     try {
-      const deleted = await storage.deleteVoiceModel(req.params.id);
-      if (!deleted) return res.status(404).json({ error: "Voice model not found" });
+      const model = await storage.getVoiceModel(req.params.id);
+      if (!model) return res.status(404).json({ error: "Voice model not found" });
+      if (model.userId !== req.user!.id) return res.status(404).json({ error: "Voice model not found" });
+      await storage.deleteVoiceModel(req.params.id);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete voice model" });

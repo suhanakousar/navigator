@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { AppLayout } from "@/components/layout/app-layout";
 import { GlassCard } from "@/components/ui/glass-card";
 import { AnimatedOrb } from "@/components/ui/animated-orb";
@@ -7,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   Mic,
@@ -41,9 +44,9 @@ export default function VoiceAssistant() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
   const [inputMode, setInputMode] = useState<"text" | "voice">("text");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -52,6 +55,29 @@ export default function VoiceAssistant() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const chatMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const response = await apiRequest("POST", "/api/chat", { message });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: data.message || data.fallbackResponse || "I apologize, but I couldn't generate a response.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to get response. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -64,21 +90,13 @@ export default function VoiceAssistant() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const messageToSend = input;
     setInput("");
-    setIsTyping(true);
-
-    // Simulate AI response
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: "I understand you're asking about " + input.slice(0, 30) + "... Let me help you with that. As your AI assistant, I can help you with voice generation, image creation, document analysis, and much more. What would you like to explore?",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-      setIsTyping(false);
-    }, 1500);
+    
+    chatMutation.mutate(messageToSend);
   };
+
+  const isTyping = chatMutation.isPending;
 
   const toggleVoice = () => {
     setIsListening(!isListening);

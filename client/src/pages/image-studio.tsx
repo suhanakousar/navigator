@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { AppLayout } from "@/components/layout/app-layout";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { LoadingSkeleton, GridSkeleton } from "@/components/ui/loading-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useToast } from "@/hooks/use-toast";
 import {
   Sparkles,
   RefreshCw,
@@ -22,12 +25,12 @@ import {
 } from "lucide-react";
 
 const stylePresets = [
-  { id: "realistic", name: "Realistic", icon: "📷" },
-  { id: "3d", name: "3D Render", icon: "🎨" },
-  { id: "anime", name: "Anime", icon: "✨" },
-  { id: "cyberpunk", name: "Cyberpunk", icon: "🌃" },
-  { id: "holographic", name: "Holographic", icon: "🔮" },
-  { id: "fantasy", name: "Fantasy", icon: "🏰" },
+  { id: "realistic", name: "Realistic" },
+  { id: "3d", name: "3D Render" },
+  { id: "anime", name: "Anime" },
+  { id: "cyberpunk", name: "Cyberpunk" },
+  { id: "holographic", name: "Holographic" },
+  { id: "fantasy", name: "Fantasy" },
 ];
 
 const aspectRatios = [
@@ -47,27 +50,57 @@ export default function ImageStudio() {
   const [prompt, setPrompt] = useState("");
   const [selectedStyle, setSelectedStyle] = useState("realistic");
   const [selectedRatio, setSelectedRatio] = useState("1:1");
-  const [isGenerating, setIsGenerating] = useState(false);
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null);
   const [creativity, setCreativity] = useState([70]);
   const [quality, setQuality] = useState([80]);
+  const { toast } = useToast();
+
+  const ratioToSize: Record<string, string> = {
+    "1:1": "1024x1024",
+    "16:9": "1792x1024",
+    "9:16": "1024x1792",
+    "4:3": "1024x1024",
+  };
+
+  const generateMutation = useMutation({
+    mutationFn: async (data: { prompt: string; style: string; size: string }) => {
+      const response = await apiRequest("POST", "/api/images/generate", data);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.images && data.images.length > 0) {
+        const newImages: GeneratedImage[] = data.images.map((img: any, i: number) => ({
+          id: `img-${Date.now()}-${i}`,
+          url: img.url,
+          prompt: img.revisedPrompt || prompt,
+        }));
+        setImages(newImages);
+        toast({
+          title: "Image generated",
+          description: "Your image has been created successfully.",
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Generation failed",
+        description: error.message || "Failed to generate image. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleGenerate = () => {
     if (!prompt.trim()) return;
-    setIsGenerating(true);
-    
-    // Simulate generation
-    setTimeout(() => {
-      const newImages: GeneratedImage[] = Array.from({ length: 4 }, (_, i) => ({
-        id: `img-${Date.now()}-${i}`,
-        url: `https://picsum.photos/seed/${Date.now() + i}/512/512`,
-        prompt: prompt,
-      }));
-      setImages(newImages);
-      setIsGenerating(false);
-    }, 3000);
+    generateMutation.mutate({
+      prompt,
+      style: selectedStyle,
+      size: ratioToSize[selectedRatio] || "1024x1024",
+    });
   };
+
+  const isGenerating = generateMutation.isPending;
 
   return (
     <AppLayout title="Image Studio">
@@ -130,8 +163,7 @@ export default function ImageStudio() {
                     }`}
                     data-testid={`style-${style.id}`}
                   >
-                    <span className="text-xl block mb-1">{style.icon}</span>
-                    <span className="text-xs">{style.name}</span>
+                    <span className="text-xs font-medium">{style.name}</span>
                   </button>
                 ))}
               </div>
