@@ -4,7 +4,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import multer from "multer";
 import { storage } from "./storage";
 import { isAuthenticated } from "./firebaseAuth";
-import { generateImageWithBytez, generateVideoWithBytez, generateVideoWithGoogle } from "./bytezService";
+import { generateImageWithBytez, generateVideoWithBytez } from "./bytezService";
 import { analyzeDocument } from "./documentService";
 import { generateSuggestedActions } from "./reasonerService";
 import { generateSpeechWithMurf, getMurfVoices } from "./murfService";
@@ -729,23 +729,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           await storage.updateJob(job.id, { status: "processing" });
           console.log("🎬 Video Generation: Processing job", job.id);
 
-          // Try Google Veo first, fallback to Bytez
-          let videoResult;
-          let provider = "unknown";
-          
-          try {
-            videoResult = await generateVideoWithGoogle({ prompt, duration });
-            provider = "google-veo";
-            if (videoResult.error) {
-              console.log("⚠️ Google Veo failed, trying Bytez fallback...");
-              videoResult = await generateVideoWithBytez({ prompt, duration });
-              provider = "bytez";
-            }
-          } catch (googleError: any) {
-            console.warn("⚠️ Google Veo error, trying Bytez fallback:", googleError.message);
-            videoResult = await generateVideoWithBytez({ prompt, duration });
-            provider = "bytez";
-          }
+          // Use Bytez for video generation
+          const videoResult = await generateVideoWithBytez({ prompt, duration });
+          const provider = "bytez";
 
           if (videoResult.error) {
             console.error("❌ Video generation failed:", videoResult.error);
@@ -1023,23 +1009,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         // Update status to processing
         await storage.updateJob(job.id, { status: "processing" });
 
-        // Try Google Veo first, fallback to Bytez
-        let videoResult;
-        let provider = "unknown";
-        
-        try {
-          videoResult = await generateVideoWithGoogle({ prompt, duration });
-          provider = "google-veo";
-          if (videoResult.error) {
-            console.log("⚠️ Google Veo failed, trying Bytez fallback...");
-            videoResult = await generateVideoWithBytez({ prompt, duration });
-            provider = "bytez";
-          }
-        } catch (googleError: any) {
-          console.warn("⚠️ Google Veo error, trying Bytez fallback:", googleError.message);
-          videoResult = await generateVideoWithBytez({ prompt, duration });
-          provider = "bytez";
-        }
+        // Use Bytez for video generation
+        const videoResult = await generateVideoWithBytez({ prompt, duration });
+        const provider = "bytez";
 
         if (videoResult.error) {
           console.error("❌ Video generation failed:", videoResult.error);

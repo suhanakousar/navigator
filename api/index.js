@@ -1703,74 +1703,6 @@ async function generateImageWithBytez(options) {
     };
   }
 }
-async function generateVideoWithGoogle(options) {
-  try {
-    console.log("\u{1F3AC} Google Veo: Starting video generation with prompt:", options.prompt);
-    console.log("\u{1F3AC} Google Veo: Using API key:", googleApiKey.substring(0, 8) + "...");
-    const genAIAny = genAI;
-    let operation = await genAIAny.models.generateVideo({
-      model: "veo-1.5-generate-001",
-      prompt: options.prompt
-    });
-    console.log("\u{1F3AC} Google Veo: Operation started:", operation.name);
-    const maxWaitTime = 12e4;
-    const startTime = Date.now();
-    const pollInterval = 5e3;
-    while (!operation.done) {
-      const elapsed = Date.now() - startTime;
-      if (elapsed > maxWaitTime) {
-        console.warn("\u26A0\uFE0F Google Veo: Timeout after", Math.round(elapsed / 1e3), "seconds");
-        return {
-          error: "Video generation timeout - operation took longer than 2 minutes. Please try again or use a shorter prompt."
-        };
-      }
-      console.log("\u{1F3AC} Google Veo: Generating video... (elapsed: " + Math.round(elapsed / 1e3) + "s)");
-      await new Promise((res) => setTimeout(res, pollInterval));
-      try {
-        operation = await genAIAny.operations.get({ name: operation.name });
-      } catch (pollError) {
-        console.error("\u274C Google Veo: Error polling operation:", pollError.message);
-        return {
-          error: `Failed to poll video generation status: ${pollError.message}`
-        };
-      }
-    }
-    console.log("\u2705 Google Veo: Video generation completed");
-    const videoFile = operation.result?.video;
-    if (!videoFile) {
-      console.error("\u274C Google Veo: No video file in result");
-      return {
-        error: "No video file returned from Google Veo",
-        raw: operation.result
-      };
-    }
-    let videoUrl;
-    if (typeof videoFile === "string") {
-      videoUrl = videoFile;
-    } else if (videoFile.uri) {
-      videoUrl = videoFile.uri;
-    } else if (videoFile.url) {
-      videoUrl = videoFile.url;
-    } else {
-      videoUrl = videoFile.fileUri || videoFile.uri || JSON.stringify(videoFile);
-    }
-    console.log("\u2705 Google Veo: Video URL:", videoUrl);
-    return {
-      url: videoUrl,
-      raw: {
-        operation: operation.name,
-        videoFile,
-        result: operation.result
-      }
-    };
-  } catch (err) {
-    console.error("\u274C Google Veo Service Exception:", err);
-    console.error("\u274C Error stack:", err.stack);
-    return {
-      error: err.message || err.toString() || "Failed to generate video with Google Veo"
-    };
-  }
-}
 async function generateVideoWithBytez(options) {
   try {
     console.log("\u{1F3AC} Bytez Video: Starting video generation with prompt:", options.prompt);
@@ -4212,21 +4144,8 @@ Assistant:`;
           console.log("\u{1F3AC} Video Generation: Starting background processing for job", job.id);
           await storage.updateJob(job.id, { status: "processing" });
           console.log("\u{1F3AC} Video Generation: Processing job", job.id);
-          let videoResult;
-          let provider = "unknown";
-          try {
-            videoResult = await generateVideoWithGoogle({ prompt, duration });
-            provider = "google-veo";
-            if (videoResult.error) {
-              console.log("\u26A0\uFE0F Google Veo failed, trying Bytez fallback...");
-              videoResult = await generateVideoWithBytez({ prompt, duration });
-              provider = "bytez";
-            }
-          } catch (googleError) {
-            console.warn("\u26A0\uFE0F Google Veo error, trying Bytez fallback:", googleError.message);
-            videoResult = await generateVideoWithBytez({ prompt, duration });
-            provider = "bytez";
-          }
+          const videoResult = await generateVideoWithBytez({ prompt, duration });
+          const provider = "bytez";
           if (videoResult.error) {
             console.error("\u274C Video generation failed:", videoResult.error);
             await storage.updateJob(job.id, {
@@ -4449,21 +4368,8 @@ Assistant:`;
         const userId = job.userId;
         console.log("\u{1F3AC} Processing video generation job:", job.id);
         await storage.updateJob(job.id, { status: "processing" });
-        let videoResult;
-        let provider = "unknown";
-        try {
-          videoResult = await generateVideoWithGoogle({ prompt, duration });
-          provider = "google-veo";
-          if (videoResult.error) {
-            console.log("\u26A0\uFE0F Google Veo failed, trying Bytez fallback...");
-            videoResult = await generateVideoWithBytez({ prompt, duration });
-            provider = "bytez";
-          }
-        } catch (googleError) {
-          console.warn("\u26A0\uFE0F Google Veo error, trying Bytez fallback:", googleError.message);
-          videoResult = await generateVideoWithBytez({ prompt, duration });
-          provider = "bytez";
-        }
+        const videoResult = await generateVideoWithBytez({ prompt, duration });
+        const provider = "bytez";
         if (videoResult.error) {
           console.error("\u274C Video generation failed:", videoResult.error);
           await storage.updateJob(job.id, {

@@ -140,7 +140,7 @@ export default function VideoStudio() {
             queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
             toast({
               title: "Video generated ✨",
-              description: `Successfully generated video using ${job.result.provider || "Google Veo"}. Video saved to history.`,
+              description: `Successfully generated video using ${job.result.provider || "Bytez"}. Video saved to history.`,
             });
           } else {
             toast({
