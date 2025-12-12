@@ -51,6 +51,12 @@ async function buildApi() {
     banner: {
       js: "// @ts-nocheck\n",
     },
+    // Ensure local files are bundled
+    // By default, esbuild bundles local files (./ and ../) and externalizes node_modules
+    // The external list only applies to node_modules packages
+    resolveExtensions: [".ts", ".tsx", ".js", ".jsx", ".json"],
+    // Make sure we're not accidentally externalizing local paths
+    alias: {},
   }).catch((err) => {
     console.error("esbuild error:", err);
     throw err;
