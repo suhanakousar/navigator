@@ -77318,6 +77318,52 @@ async function generateVideoWithBytez(options) {
     };
   }
 }
+async function generateDialogueSummary(options) {
+  try {
+    if (!options.text || !options.text.trim()) {
+      return {
+        error: "Text is required for dialogue summarization"
+      };
+    }
+    console.log("\u{1F4DD} Bytez Dialogue: Generating dialogue summary...");
+    console.log("\u{1F4DD} Bytez Dialogue: Input text length:", options.text.length);
+    console.log("\u{1F4DD} Bytez Dialogue: Using API key:", dialogueApiKey.substring(0, 8) + "...");
+    const result2 = await dialogueSummaryModel.run(options.text);
+    console.log("\u{1F4DD} Bytez Dialogue: Raw result:", JSON.stringify(result2, null, 2));
+    const { error, output } = result2;
+    if (error) {
+      console.error("\u274C Bytez Dialogue Model Error:", error);
+      const errorMessage = typeof error === "string" ? error : error?.message || JSON.stringify(error) || "Failed to generate dialogue summary";
+      return {
+        error: errorMessage
+      };
+    }
+    if (!output) {
+      return {
+        error: "No output received from Bytez API"
+      };
+    }
+    let summary;
+    if (typeof output === "string") {
+      summary = output;
+    } else if (typeof output === "object" && output !== null) {
+      summary = output.summary || output.text || JSON.stringify(output);
+    } else {
+      summary = String(output);
+    }
+    console.log("\u2705 Bytez Dialogue: Dialogue summary generated successfully");
+    console.log("\u{1F4DD} Bytez Dialogue: Summary length:", summary.length);
+    return {
+      summary: summary.trim()
+    };
+  } catch (err) {
+    console.error("\u274C Bytez Dialogue Service Exception:", err);
+    console.error("\u274C Error stack:", err.stack);
+    return {
+      error: err.message || err.toString() || "Bytez dialogue service encountered an unexpected error"
+    };
+  }
+}
 async function analyzeDocumentWithBytez(options) {
   try {
     console.log("\u{1F4C4} Bytez Document: Starting document analysis");
@@ -86531,9 +86577,8 @@ async function executeWorkflow(workflow, userId) {
     }
     await storage.updateWorkflowRun(run.id, {
       status: currentStatus,
-      logs,
-      completedAt: /* @__PURE__ */ new Date(),
-      errorMessage: errorMessage || void 0
+      logs: errorMessage ? [...logs, { error: errorMessage, timestamp: (/* @__PURE__ */ new Date()).toISOString() }] : logs,
+      completedAt: /* @__PURE__ */ new Date()
     });
     return await storage.getWorkflowRun(run.id);
   } catch (error) {
@@ -86546,9 +86591,8 @@ async function executeWorkflow(workflow, userId) {
     });
     await storage.updateWorkflowRun(run.id, {
       status: "failed",
-      logs,
-      completedAt: /* @__PURE__ */ new Date(),
-      errorMessage
+      logs: [...logs, { error: errorMessage, timestamp: (/* @__PURE__ */ new Date()).toISOString() }],
+      completedAt: /* @__PURE__ */ new Date()
     });
     throw error;
   }
@@ -86606,7 +86650,7 @@ async function getWorkflowStats(workflowId) {
   const runs = await storage.getWorkflowRuns(workflowId);
   const successCount = runs.filter((r) => r.status === "completed").length;
   const failedCount = runs.filter((r) => r.status === "failed").length;
-  const lastRun = runs.length > 0 ? runs[0].createdAt : void 0;
+  const lastRun = runs.length > 0 ? runs[0].createdAt || void 0 : void 0;
   return {
     totalRuns: runs.length,
     successCount,
@@ -86713,15 +86757,15 @@ async function registerRoutes(httpServer, app2) {
       }
       const isPublic = req.body.isPublic === true || req.body.isPublic === "true" || false;
       const isStarred = req.body.isStarred === true || req.body.isStarred === "true" || false;
-      const projectData2 = {
+      const projectData = {
         userId,
         title,
         description: description && description.length > 0 ? description : null,
         isPublic,
         isStarred
       };
-      console.log("\u{1F4CB} Project creation request:", JSON.stringify(projectData2, null, 2));
-      const data = insertProjectSchema.parse(projectData2);
+      console.log("\u{1F4CB} Project creation request:", JSON.stringify(projectData, null, 2));
+      const data = insertProjectSchema.parse(projectData);
       console.log("\u2705 Validated project data:", JSON.stringify(data, null, 2));
       const project = await storage.createProject(data);
       console.log("\u2705 Project created:", project.id);
@@ -86743,7 +86787,7 @@ async function registerRoutes(httpServer, app2) {
           error: "Invalid project data",
           details: errorDetails,
           message: error.message,
-          received: projectData
+          received: req.body
         });
       } else {
         res.status(400).json({
@@ -87037,10 +87081,10 @@ Assistant:`;
                 size: size2,
                 quality: "standard"
               });
-              images = response.data.map((img) => ({
-                url: img.url,
+              images = (response.data || []).map((img) => ({
+                url: img.url || "",
                 revisedPrompt: img.revised_prompt
-              }));
+              })).filter((img) => img.url);
               console.log("\u2705 OpenAI fallback succeeded");
             } catch (openaiError) {
               console.error("\u274C OpenAI fallback also failed:", openaiError.message);
@@ -87085,10 +87129,10 @@ Assistant:`;
           size: size2,
           quality: "standard"
         });
-        images = response.data.map((img) => ({
-          url: img.url,
+        images = (response.data || []).map((img) => ({
+          url: img.url || "",
           revisedPrompt: img.revised_prompt
-        }));
+        })).filter((img) => img.url);
       } else {
         return res.status(503).json({
           error: "No image provider available",

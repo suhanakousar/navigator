@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { analyzeDocumentWithBytez } from "./bytezService";
+import { analyzeDocumentWithBytez, generateDialogueSummary } from "./bytezService";
 import { analyzeImageWithGemini, isGeminiAvailable } from "./geminiService";
 import { sanitizeText, sanitizeExtractedData, limitTextLength } from "./utils/sanitize";
 import mammoth from "mammoth";

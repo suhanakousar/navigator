@@ -186,7 +186,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           error: "Invalid project data", 
           details: errorDetails,
           message: error.message,
-          received: projectData,
+          received: req.body,
         });
       } else {
         res.status(400).json({ 
@@ -533,10 +533,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
                 quality: "standard",
               });
 
-              images = response.data.map(img => ({
-                url: img.url,
+              images = (response.data || []).map(img => ({
+                url: img.url || "",
                 revisedPrompt: img.revised_prompt,
-              }));
+              })).filter(img => img.url);
               console.log("✅ OpenAI fallback succeeded");
             } catch (openaiError: any) {
               console.error("❌ OpenAI fallback also failed:", openaiError.message);
@@ -584,10 +584,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           quality: "standard",
         });
 
-        images = response.data.map(img => ({
-          url: img.url,
+        images = (response.data || []).map(img => ({
+          url: img.url || "",
           revisedPrompt: img.revised_prompt,
-        }));
+        })).filter(img => img.url);
       } else {
         return res.status(503).json({
           error: "No image provider available",
@@ -1201,7 +1201,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(404).json({ error: "Document not found" });
       }
 
-      const extractedData = asset.metadata?.extractedData || {};
+      const extractedData = (asset.metadata as any)?.extractedData || {};
       
       // Use reasoner service to generate form mapping
       if (!openai) {
@@ -1268,7 +1268,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(404).json({ error: "Document not found" });
       }
 
-      const extractedData = asset.metadata?.extractedData || {};
+      const extractedData = (asset.metadata as any)?.extractedData || {};
       let result: any = {};
       let status: "success" | "failed" = "success";
 

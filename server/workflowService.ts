@@ -118,9 +118,8 @@ export async function executeWorkflow(workflow: Workflow, userId: string): Promi
     // Update workflow run with results
     await storage.updateWorkflowRun(run.id, {
       status: currentStatus,
-      logs,
+      logs: errorMessage ? [...logs, { error: errorMessage, timestamp: new Date().toISOString() }] : logs,
       completedAt: new Date(),
-      errorMessage: errorMessage || undefined,
     });
 
     return (await storage.getWorkflowRun(run.id))!;
@@ -135,9 +134,8 @@ export async function executeWorkflow(workflow: Workflow, userId: string): Promi
 
     await storage.updateWorkflowRun(run.id, {
       status: "failed",
-      logs,
+      logs: [...logs, { error: errorMessage, timestamp: new Date().toISOString() }],
       completedAt: new Date(),
-      errorMessage,
     });
 
     throw error;
@@ -223,7 +221,7 @@ export async function getWorkflowStats(workflowId: string): Promise<{
   const runs = await storage.getWorkflowRuns(workflowId);
   const successCount = runs.filter((r) => r.status === "completed").length;
   const failedCount = runs.filter((r) => r.status === "failed").length;
-  const lastRun = runs.length > 0 ? runs[0].createdAt : undefined;
+  const lastRun = runs.length > 0 ? (runs[0].createdAt || undefined) : undefined;
 
   return {
     totalRuns: runs.length,
