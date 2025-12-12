@@ -6,7 +6,7 @@ const imageSdk = new Bytez(imageApiKey);
 const imageModel = imageSdk.model("ZB-Tech/Text-to-Image");
 
 // Initialize Bytez SDK for videos with separate API key
-const videoApiKey = process.env.BYTEZ_VIDEO_API_KEY || "0db3ece932799d9c7809ccd5445e4e5f";
+const videoApiKey = process.env.BYTEZ_VIDEO_API_KEY || "72766a8ab41bb8e6ee002cc4e4dd42c6";
 const videoSdk = new Bytez(videoApiKey);
 const videoModel = videoSdk.model("ali-vilab/text-to-video-ms-1.7b");
 
