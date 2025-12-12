@@ -21,7 +21,7 @@ async function buildApi() {
   });
 
   await esbuild({
-    entryPoints: ["api/index.ts"],
+    entryPoints: ["api/index.source.ts"],
     platform: "node",
     bundle: true,
     format: "esm",
@@ -40,17 +40,7 @@ async function buildApi() {
     throw err;
   });
   
-  // Remove the TypeScript file after building to avoid conflicts with Vercel
-  // Only do this in Vercel build environment (not locally)
-  if (process.env.VERCEL === "1" && existsSync("api/index.ts")) {
-    try {
-      await unlink("api/index.ts");
-      console.log("✅ Removed api/index.ts to avoid Vercel conflicts");
-    } catch (err) {
-      console.warn("⚠️  Could not remove api/index.ts:", err);
-      // Not critical, continue anyway
-    }
-  }
+  // No need to delete source file - it's named differently so no conflict
   
   console.log("✅ API function built successfully");
 }
