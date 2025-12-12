@@ -209,8 +209,11 @@ export async function generateVideoWithGoogle(
     console.log("🎬 Google Veo: Starting video generation with prompt:", options.prompt);
     console.log("🎬 Google Veo: Using API key:", googleApiKey.substring(0, 8) + "...");
     
-    // Start video generation
-    let operation = await genAI.models.generateVideo({
+    // Start video generation using the Google Generative AI API
+    // Note: Using type casting as the SDK types may not include video generation yet
+    const genAIAny = genAI as any;
+    
+    let operation = await genAIAny.models.generateVideo({
       model: "veo-1.5-generate-001",
       prompt: options.prompt,
     });
@@ -233,7 +236,7 @@ export async function generateVideoWithGoogle(
       console.log("🎬 Google Veo: Generating video... (elapsed: " + Math.round(elapsed / 1000) + "s)");
       await new Promise((res) => setTimeout(res, pollInterval));
       
-      operation = await genAI.operations.get({ name: operation.name });
+      operation = await genAIAny.operations.get({ name: operation.name });
     }
 
     console.log("✅ Google Veo: Video generation completed");
