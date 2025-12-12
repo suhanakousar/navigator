@@ -25,6 +25,10 @@ async function buildApi() {
     "@google-cloud/*", // Google Cloud packages with optional deps
     "@opentelemetry/*", // Optional telemetry dependencies
     "express", // Externalize to avoid require() issues in ESM
+    "multer", // File upload middleware - uses require()
+    "openai", // OpenAI SDK - may use require()
+    "drizzle-orm", // ORM - may use require()
+    "drizzle-kit", // Drizzle CLI tools
     "http", // Node.js built-in
     "https", // Node.js built-in
     "path", // Node.js built-in
@@ -33,6 +37,14 @@ async function buildApi() {
     "util", // Node.js built-in
     "stream", // Node.js built-in
     "crypto", // Node.js built-in
+    "os", // Node.js built-in
+    "events", // Node.js built-in
+    "net", // Node.js built-in
+    "tls", // Node.js built-in
+    "zlib", // Node.js built-in
+    "querystring", // Node.js built-in
+    "child_process", // Node.js built-in
+    "cluster", // Node.js built-in
   ];
   
   const externals = allDeps.filter((dep) => {
@@ -46,6 +58,29 @@ async function buildApi() {
     });
   });
 
+  // Use a plugin to externalize all node_modules
+  const externalizeNodeModulesPlugin = {
+    name: "externalize-node-modules",
+    setup(build: any) {
+      // Externalize all node_modules packages
+      build.onResolve({ filter: /^[^./]|^\.[^./]|^\.\.[^/]/ }, (args: any) => {
+        // Check if it's already in our explicit external list
+        const isExplicitlyExternal = externals.some((ext) => {
+          if (ext.includes("*")) {
+            const regex = new RegExp("^" + ext.replace(/\*/g, ".*"));
+            return regex.test(args.path);
+          }
+          return args.path === ext || args.path.startsWith(ext + "/");
+        });
+        
+        if (!isExplicitlyExternal) {
+          // Externalize all node_modules
+          return { path: args.path, external: true };
+        }
+      });
+    },
+  };
+  
   await esbuild({
     entryPoints: ["api/index.source.ts"],
     platform: "node",
@@ -57,15 +92,12 @@ async function buildApi() {
     },
     minify: false, // Keep readable for debugging
     external: externals,
+    plugins: [externalizeNodeModulesPlugin],
     logLevel: "info",
     banner: {
       js: "// @ts-nocheck\n",
     },
-    // Ensure local files are bundled
-    // By default, esbuild bundles local files (./ and ../) and externalizes node_modules
-    // The external list only applies to node_modules packages
     resolveExtensions: [".ts", ".tsx", ".js", ".jsx", ".json"],
-    // Make sure we're not accidentally externalizing local paths
     alias: {},
   }).catch((err) => {
     console.error("esbuild error:", err);
