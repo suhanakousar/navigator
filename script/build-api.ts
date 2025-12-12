@@ -41,8 +41,8 @@ async function buildApi() {
   });
   
   // Remove the TypeScript file after building to avoid conflicts with Vercel
-  // Vercel will only see the .js file
-  if (existsSync("api/index.ts")) {
+  // Only do this in Vercel build environment (not locally)
+  if (process.env.VERCEL === "1" && existsSync("api/index.ts")) {
     try {
       await unlink("api/index.ts");
       console.log("✅ Removed api/index.ts to avoid Vercel conflicts");
