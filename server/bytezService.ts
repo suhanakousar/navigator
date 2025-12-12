@@ -9,11 +9,37 @@ let videoModel: any = null;
 async function getBytezInstance() {
   if (!Bytez) {
     try {
+      // First, try to ensure undici is available
+      // undici is built into Node.js 18+, but bytez.js might try to import it as a package
+      try {
+        await import("undici");
+        console.log("✅ undici is available");
+      } catch (undiciError: any) {
+        console.warn("⚠️ undici not found as package, trying to use Node.js built-in fetch API");
+        // If undici is not available as a package, it might be built into Node.js
+        // We'll let bytez.js handle the error
+      }
+      
       const bytezModule = await import("bytez.js");
       Bytez = bytezModule.default || bytezModule;
     } catch (error: any) {
       console.error("❌ Failed to import bytez.js:", error.message);
-      throw new Error(`Failed to load bytez.js: ${error.message}. Make sure 'undici' is installed.`);
+      console.error("❌ Error details:", {
+        message: error.message,
+        code: error.code,
+        stack: error.stack?.substring(0, 500),
+      });
+      
+      // Provide more helpful error message
+      if (error.message?.includes("undici")) {
+        throw new Error(
+          `Failed to load bytez.js: 'undici' package is required but not found. ` +
+          `Please ensure 'undici' is installed: npm install undici. ` +
+          `If using Node.js 18+, undici should be available as a built-in. ` +
+          `Original error: ${error.message}`
+        );
+      }
+      throw new Error(`Failed to load bytez.js: ${error.message}`);
     }
   }
   return Bytez;

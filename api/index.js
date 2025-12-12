@@ -1609,11 +1609,27 @@ var init_dist = __esm({
 async function getBytezInstance() {
   if (!Bytez) {
     try {
+      try {
+        await import("undici");
+        console.log("\u2705 undici is available");
+      } catch (undiciError) {
+        console.warn("\u26A0\uFE0F undici not found as package, trying to use Node.js built-in fetch API");
+      }
       const bytezModule = await import("bytez.js");
       Bytez = bytezModule.default || bytezModule;
     } catch (error) {
       console.error("\u274C Failed to import bytez.js:", error.message);
-      throw new Error(`Failed to load bytez.js: ${error.message}. Make sure 'undici' is installed.`);
+      console.error("\u274C Error details:", {
+        message: error.message,
+        code: error.code,
+        stack: error.stack?.substring(0, 500)
+      });
+      if (error.message?.includes("undici")) {
+        throw new Error(
+          `Failed to load bytez.js: 'undici' package is required but not found. Please ensure 'undici' is installed: npm install undici. If using Node.js 18+, undici should be available as a built-in. Original error: ${error.message}`
+        );
+      }
+      throw new Error(`Failed to load bytez.js: ${error.message}`);
     }
   }
   return Bytez;
