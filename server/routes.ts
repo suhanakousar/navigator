@@ -23,6 +23,7 @@ import {
   insertJobSchema,
   insertWorkflowSchema,
   insertVoiceModelSchema,
+  users,
 } from "@shared/schema";
 import OpenAI from "openai";
 
@@ -58,6 +59,42 @@ const upload = multer({
 });
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<void> {
+  // ===== Health Check / Diagnostics =====
+  app.get("/api/health", async (req, res) => {
+    try {
+      const health = {
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        environment: {
+          nodeEnv: process.env.NODE_ENV,
+          hasDatabaseUrl: !!process.env.DATABASE_URL,
+          hasSessionSecret: !!process.env.SESSION_SECRET,
+          hasOpenaiKey: !!process.env.OPENAI_API_KEY,
+          vercel: !!process.env.VERCEL,
+        },
+        // Test database connection
+        database: "unknown" as string,
+      };
+      
+      // Try to connect to database
+      try {
+        const { db } = await import("./db");
+        await db.select().from(users).limit(1);
+        health.database = "connected";
+      } catch (dbError: any) {
+        health.database = `error: ${dbError.message}`;
+      }
+      
+      res.json(health);
+    } catch (error: any) {
+      res.status(500).json({
+        status: "error",
+        message: error.message,
+        stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+      });
+    }
+  });
+
   // ===== Projects =====
   app.get("/api/projects", isAuthenticated, async (req, res) => {
     try {
