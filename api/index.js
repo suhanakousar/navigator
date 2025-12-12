@@ -4173,98 +4173,115 @@ Assistant:`;
     }
   });
   app2.post("/api/videos/generate", isAuthenticated, async (req, res) => {
-    const startTime = Date.now();
-    const timeoutWarning = setTimeout(() => {
-      console.warn("\u26A0\uFE0F Video generation taking longer than 30 seconds...");
-    }, 3e4);
     try {
       const { prompt, duration, projectId } = req.body;
       if (!prompt) {
-        clearTimeout(timeoutWarning);
         return res.status(400).json({ error: "Prompt is required" });
       }
-      console.log("\u{1F3AC} Video Generation: Starting with prompt:", prompt);
-      let videoResult;
-      try {
-        videoResult = await generateVideoWithGoogle({ prompt, duration });
-        if (videoResult.error) {
-          console.log("\u26A0\uFE0F Google Veo failed, trying Bytez fallback...");
-          videoResult = await generateVideoWithBytez({ prompt, duration });
-        }
-      } catch (googleError) {
-        console.warn("\u26A0\uFE0F Google Veo error, trying Bytez fallback:", googleError.message);
-        videoResult = await generateVideoWithBytez({ prompt, duration });
-      }
-      clearTimeout(timeoutWarning);
-      if (videoResult.error) {
-        console.error("\u274C Video generation failed:", videoResult.error);
-        console.log("\u{1F4CB} Video raw output:", JSON.stringify(videoResult.raw, null, 2));
-        return res.status(503).json({
-          error: "Video generation failed",
-          message: videoResult.error || "Please configure GOOGLE_API_KEY or BYTEZ_VIDEO_API_KEY",
-          fallbackResponse: "Video generation is currently unavailable. Please check your API keys.",
-          details: videoResult.raw ? JSON.stringify(videoResult.raw) : void 0
-        });
-      }
-      const urls = videoResult.urls || (videoResult.url ? [videoResult.url] : []);
-      if (urls.length === 0) {
-        console.error("\u274C Video generation returned success but no video URLs found");
-        return res.status(503).json({
-          error: "No videos returned",
-          message: "Video generation completed but no video URLs were returned",
-          fallbackResponse: "Video generation failed. Please try again.",
-          details: JSON.stringify(videoResult.raw)
-        });
-      }
-      console.log("\u2705 Video generation succeeded, returning", urls.length, "video(s)");
       const userId = getUserId(req);
-      const savedVideos = [];
-      for (const url of urls) {
+      console.log("\u{1F3AC} Video Generation: Starting with prompt:", prompt);
+      const job = await storage.createJob({
+        userId,
+        type: "video_generation",
+        status: "pending",
+        input: { prompt, duration, projectId }
+      });
+      console.log("\u2705 Video generation job created:", job.id);
+      res.status(202).json({
+        jobId: job.id,
+        status: "pending",
+        message: "Video generation started. Poll /api/jobs/:id for status.",
+        pollUrl: `/api/jobs/${job.id}`
+      });
+      (async () => {
         try {
-          const asset = await storage.createAsset({
-            userId,
-            type: "video",
-            name: prompt.slice(0, 50),
-            url,
-            projectId: projectId || null,
-            metadata: { prompt, duration, provider: videoResult.raw?.operation ? "google-veo" : "bytez" }
+          await storage.updateJob(job.id, { status: "processing" });
+          console.log("\u{1F3AC} Video Generation: Processing job", job.id);
+          let videoResult;
+          let provider = "unknown";
+          try {
+            videoResult = await generateVideoWithGoogle({ prompt, duration });
+            provider = "google-veo";
+            if (videoResult.error) {
+              console.log("\u26A0\uFE0F Google Veo failed, trying Bytez fallback...");
+              videoResult = await generateVideoWithBytez({ prompt, duration });
+              provider = "bytez";
+            }
+          } catch (googleError) {
+            console.warn("\u26A0\uFE0F Google Veo error, trying Bytez fallback:", googleError.message);
+            videoResult = await generateVideoWithBytez({ prompt, duration });
+            provider = "bytez";
+          }
+          if (videoResult.error) {
+            console.error("\u274C Video generation failed:", videoResult.error);
+            await storage.updateJob(job.id, {
+              status: "failed",
+              errorMessage: videoResult.error,
+              completedAt: /* @__PURE__ */ new Date()
+            });
+            return;
+          }
+          const urls = videoResult.urls || (videoResult.url ? [videoResult.url] : []);
+          if (urls.length === 0) {
+            console.error("\u274C Video generation returned success but no video URLs found");
+            await storage.updateJob(job.id, {
+              status: "failed",
+              errorMessage: "No video URLs returned",
+              completedAt: /* @__PURE__ */ new Date()
+            });
+            return;
+          }
+          console.log("\u2705 Video generation succeeded, saving", urls.length, "video(s)");
+          const savedVideos = [];
+          for (const url of urls) {
+            try {
+              const asset = await storage.createAsset({
+                userId,
+                type: "video",
+                name: prompt.slice(0, 50),
+                url,
+                projectId: projectId || null,
+                metadata: { prompt, duration, provider }
+              });
+              savedVideos.push({
+                id: asset.id,
+                url: asset.url,
+                prompt
+              });
+            } catch (assetError) {
+              console.error("Failed to save video asset:", assetError);
+              savedVideos.push({
+                id: `temp-${Date.now()}`,
+                url,
+                prompt
+              });
+            }
+          }
+          await storage.updateJob(job.id, {
+            status: "completed",
+            result: {
+              videos: savedVideos,
+              provider
+            },
+            resultUrl: savedVideos[0]?.url,
+            completedAt: /* @__PURE__ */ new Date()
           });
-          savedVideos.push({
-            id: asset.id,
-            url: asset.url,
-            prompt
-          });
-        } catch (assetError) {
-          console.error("Failed to save video asset:", assetError);
-          savedVideos.push({
-            id: `temp-${Date.now()}`,
-            url,
-            prompt
+          console.log("\u2705 Video generation job completed:", job.id);
+        } catch (error) {
+          console.error("\u274C Video generation job error:", error);
+          await storage.updateJob(job.id, {
+            status: "failed",
+            errorMessage: error.message || "Video generation failed",
+            completedAt: /* @__PURE__ */ new Date()
           });
         }
-      }
-      res.json({
-        videos: savedVideos,
-        provider: videoResult.raw?.operation ? "google-veo" : "bytez"
-      });
+      })();
     } catch (error) {
-      clearTimeout(timeoutWarning);
-      const elapsed = Date.now() - startTime;
-      console.error("Video generation error:", error);
-      if (error.message?.includes("timeout") || error.code === "ETIMEDOUT" || elapsed > 55e3) {
-        res.status(504).json({
-          error: "Video generation timeout",
-          message: "Video generation is taking too long. This is a long-running process that may exceed serverless function timeouts.",
-          suggestion: "Video generation can take 1-5 minutes. Consider implementing async processing with job polling.",
-          elapsed: `${Math.round(elapsed / 1e3)}s`
-        });
-      } else {
-        res.status(500).json({
-          error: "Failed to generate video",
-          details: error.message,
-          fallbackResponse: "Video generation failed. Please try again or check your API configuration."
-        });
-      }
+      console.error("Video generation request error:", error);
+      res.status(500).json({
+        error: "Failed to start video generation",
+        details: error.message
+      });
     }
   });
   app2.post("/api/documents/actions/autofill", isAuthenticated, async (req, res) => {

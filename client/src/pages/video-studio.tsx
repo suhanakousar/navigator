@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
@@ -83,6 +83,74 @@ export default function VideoStudio() {
     },
   });
 
+  const [generatingJobId, setGeneratingJobId] = useState<string | null>(null);
+  const [generationProgress, setGenerationProgress] = useState<string>("");
+
+  // Poll job status
+  const pollJobStatus = useMutation({
+    mutationFn: async (jobId: string) => {
+      const response = await apiRequest("GET", `/api/jobs/${jobId}`);
+      if (!response.ok) {
+        throw new Error("Failed to check job status");
+      }
+      return response.json();
+    },
+  });
+
+  // Poll job until complete
+  useEffect(() => {
+    if (!generatingJobId) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const job = await pollJobStatus.mutateAsync(generatingJobId);
+        
+        if (job.status === "completed") {
+          clearInterval(pollInterval);
+          setGeneratingJobId(null);
+          setGenerationProgress("");
+          
+          // Get video URLs from job result
+          if (job.result?.videos && job.result.videos.length > 0) {
+            const videos = job.result.videos;
+            setGeneratedVideo(videos[0]);
+            queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+            toast({
+              title: "Video generated ✨",
+              description: `Successfully generated video using ${job.result.provider || "Google Veo"}. Video saved to history.`,
+            });
+          } else {
+            toast({
+              title: "Video generation completed",
+              description: "Video generation finished. Check your history for the video.",
+            });
+            queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+          }
+        } else if (job.status === "failed") {
+          clearInterval(pollInterval);
+          setGeneratingJobId(null);
+          setGenerationProgress("");
+          throw new Error(job.errorMessage || "Video generation failed");
+        } else if (job.status === "processing") {
+          setGenerationProgress("Generating video... This may take 1-5 minutes.");
+        } else {
+          setGenerationProgress("Video generation queued...");
+        }
+      } catch (error: any) {
+        clearInterval(pollInterval);
+        setGeneratingJobId(null);
+        setGenerationProgress("");
+        toast({
+          title: "Generation failed",
+          description: error.message || "Failed to generate video. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }, 3000); // Poll every 3 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [generatingJobId, pollJobStatus, queryClient, toast]);
+
   const generateMutation = useMutation({
     mutationFn: async (prompt: string) => {
       try {
@@ -90,6 +158,14 @@ export default function VideoStudio() {
           prompt,
           projectId: selectedProjectId,
         });
+        
+        // Handle 202 Accepted (async job started)
+        if (response.status === 202) {
+          const jobData = await response.json();
+          setGeneratingJobId(jobData.jobId);
+          setGenerationProgress("Video generation started...");
+          return { jobId: jobData.jobId, status: "pending" };
+        }
         
         // Clone response for reading body multiple times if needed
         const clonedResponse = response.clone();
@@ -150,6 +226,16 @@ export default function VideoStudio() {
       }
     },
     onSuccess: (data) => {
+      // If async job was started, polling will handle the result
+      if (data.jobId) {
+        toast({
+          title: "Video generation started",
+          description: "Your video is being generated. This may take 1-5 minutes. We'll notify you when it's ready.",
+        });
+        return;
+      }
+      
+      // Handle synchronous response (fallback for old API)
       if (data.videos && data.videos.length > 0) {
         const video = data.videos[0];
         setGeneratedVideo({
@@ -189,7 +275,7 @@ export default function VideoStudio() {
     generateMutation.mutate(script);
   };
 
-  const isGenerating = generateMutation.isPending;
+  const isGenerating = generateMutation.isPending || !!generatingJobId;
   const progress = isGenerating ? 50 : generatedVideo ? 100 : 0;
 
   const addScene = () => {
@@ -306,10 +392,15 @@ export default function VideoStudio() {
                 {isGenerating && (
                   <div className="mt-4 space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span>Generating video...</span>
+                      <span>{generationProgress || "Generating video..."}</span>
                       <span>{progress}%</span>
                     </div>
                     <Progress value={progress} className="h-2" />
+                    {generatingJobId && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Job ID: {generatingJobId.substring(0, 8)}... (Polling for status)
+                      </p>
+                    )}
                   </div>
                 )}
               </GlassCard>
