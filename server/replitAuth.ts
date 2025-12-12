@@ -68,6 +68,77 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Skip Replit Auth if REPL_ID is not set (local development)
+  if (!process.env.REPL_ID) {
+    console.warn("⚠️  REPL_ID not set - running in local development mode without Replit Auth");
+    console.warn("   Authentication will be bypassed for local development");
+    
+    // Create a mock user for local development
+    passport.serializeUser((user: Express.User, cb) => cb(null, user));
+    passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+    
+    // Mock authentication middleware for local dev
+    app.use((req, res, next) => {
+      if (!req.user) {
+        // Create a mock user for local development
+        const mockUser = {
+          id: "local-dev-user",
+          claims: {
+            sub: "local-dev-user",
+            email: "dev@localhost",
+            first_name: "Local",
+            last_name: "Developer",
+          },
+          expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+        } as any;
+        req.user = mockUser;
+        req.login(mockUser, (err) => {
+          if (err) console.error("Login error:", err);
+          next();
+        });
+      } else {
+        next();
+      }
+    });
+    
+    // Mock auth routes
+    app.get("/api/login", (req, res) => {
+      res.json({ message: "Local development mode - already authenticated" });
+    });
+    
+    app.get("/api/logout", (req, res) => {
+      req.logout((err) => {
+        if (err) {
+          console.error("Logout error:", err);
+          return res.status(500).json({ message: "Logout failed" });
+        }
+        res.json({ message: "Logged out" });
+      });
+    });
+    
+    app.get("/api/auth/user", async (req: any, res) => {
+      try {
+        const userId = req.user?.claims?.sub || "local-dev-user";
+        let user = await storage.getUser(userId);
+        if (!user) {
+          // Create a default user for local development
+          user = await storage.upsertUser({
+            id: userId,
+            email: "dev@localhost",
+            firstName: "Local",
+            lastName: "Developer",
+          });
+        }
+        res.json(user);
+      } catch (error) {
+        console.error("Error fetching user:", error);
+        res.status(500).json({ message: "Failed to fetch user" });
+      }
+    });
+    
+    return; // Skip Replit Auth setup
+  }
+
   const config = await getOidcConfig();
 
   const verify: VerifyFunction = async (
@@ -145,6 +216,11 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  // In local development without REPL_ID, allow all requests
+  if (!process.env.REPL_ID) {
+    return next();
+  }
+
   const user = req.user as any;
 
   if (!req.isAuthenticated() || !user.expires_at) {

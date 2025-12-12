@@ -1,4 +1,8 @@
 import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
+import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/app-layout";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +13,9 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useToast } from "@/hooks/use-toast";
+import { ProjectSelector } from "@/components/ui/project-selector";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Video,
   Play,
@@ -33,11 +40,22 @@ interface StoryboardScene {
   duration: number;
 }
 
+interface GeneratedVideo {
+  id: string;
+  url: string;
+  prompt: string;
+}
+
 export default function VideoStudio() {
+  const [, setLocation] = useLocation();
+  const { isAuthenticated } = useAuth();
   const [script, setScript] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
+  const [generatedVideo, setGeneratedVideo] = useState<GeneratedVideo | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"generate" | "history">("generate");
+  const [selectedHistoryVideo, setSelectedHistoryVideo] = useState<GeneratedVideo | null>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [scenes, setScenes] = useState<StoryboardScene[]>([
     { id: "1", description: "Opening scene with logo animation", duration: 3 },
     { id: "2", description: "Main content introduction", duration: 5 },
@@ -45,24 +63,134 @@ export default function VideoStudio() {
     { id: "4", description: "Call to action and outro", duration: 4 },
   ]);
 
+  // Fetch video history from assets
+  const { data: videoHistory = [], isLoading: historyLoading } = useQuery({
+    queryKey: ["/api/assets"],
+    retry: false,
+    refetchOnWindowFocus: false,
+    select: (data: any[]) => {
+      if (!Array.isArray(data)) return [];
+      return data
+        .filter((asset) => asset.type === "video")
+        .map((asset) => ({
+          id: asset.id,
+          url: asset.url,
+          prompt: asset.metadata?.prompt || asset.name,
+          assetId: asset.id,
+          createdAt: asset.createdAt,
+        }))
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    },
+  });
+
+  const generateMutation = useMutation({
+    mutationFn: async (prompt: string) => {
+      try {
+        const response = await apiRequest("POST", "/api/videos/generate", {
+          prompt,
+          projectId: selectedProjectId,
+        });
+        
+        // Clone response for reading body multiple times if needed
+        const clonedResponse = response.clone();
+        
+        // Handle 503 Service Unavailable (API not configured or Bytez failed)
+        if (response.status === 503) {
+          try {
+            const errorData = await response.json();
+            const errorMessage = errorData.message || errorData.error || errorData.fallbackResponse || "Video generation unavailable";
+            throw new Error(errorMessage);
+          } catch (jsonError: any) {
+            // If JSON parsing fails, try reading as text
+            if (jsonError.message?.includes("JSON") || jsonError.message?.includes("DOCTYPE")) {
+              try {
+                const text = await clonedResponse.text();
+                console.error("Server returned non-JSON response:", text.substring(0, 200));
+                throw new Error("Video generation service is unavailable. Please check your API configuration and restart the server.");
+              } catch {
+                throw new Error("Video generation service is unavailable. Please check your API configuration.");
+              }
+            }
+            throw new Error(jsonError.message || "Video generation service is unavailable.");
+          }
+        }
+        
+        // Check for other error statuses
+        if (!response.ok) {
+          try {
+            const errorData = await response.json();
+            throw new Error(errorData.message || errorData.error || `Server error: ${response.status}`);
+          } catch (jsonError: any) {
+            // If JSON parsing fails, try reading as text
+            if (jsonError.message?.includes("JSON") || jsonError.message?.includes("DOCTYPE")) {
+              try {
+                const text = await clonedResponse.text();
+                console.error("Server returned non-JSON response:", text.substring(0, 200));
+                throw new Error(`Server error (${response.status}): The server returned an error page. Please check the server logs.`);
+              } catch {
+                throw new Error(`Server error: ${response.status} ${response.statusText}`);
+              }
+            }
+            throw new Error(`Server error: ${response.status} ${response.statusText}`);
+          }
+        }
+        
+        return response.json();
+      } catch (error: any) {
+        // If it's already an Error with a message, rethrow it
+        if (error instanceof Error) {
+          throw error;
+        }
+        // Handle JSON parse errors
+        if (error.message?.includes("JSON") || error.message?.includes("DOCTYPE")) {
+          throw new Error("Server returned an invalid response. Please check the server logs and ensure the video generation endpoint is working.");
+        }
+        // Otherwise, wrap it
+        throw new Error(error.message || "Failed to generate video");
+      }
+    },
+    onSuccess: (data) => {
+      if (data.videos && data.videos.length > 0) {
+        const video = data.videos[0];
+        setGeneratedVideo({
+          id: video.id,
+          url: video.url,
+          prompt: video.prompt || script,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+        toast({
+          title: "Video generated ✨",
+          description: `Successfully generated video using ${data.provider || "Bytez"}. Saved to history.`,
+        });
+      } else {
+        toast({
+          title: "No video generated",
+          description: "The generation completed but no video was returned.",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Generation failed",
+        description: error.message || "Failed to generate video. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
+    },
+  });
+
   const handleGenerate = () => {
     if (!script.trim()) return;
-    setIsGenerating(true);
-    setProgress(0);
-
-    // Simulate progress
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsGenerating(false);
-          setGeneratedVideo("generated");
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 500);
+    if (!isAuthenticated) {
+      setLocation("/signup");
+      return;
+    }
+    generateMutation.mutate(script);
   };
+
+  const isGenerating = generateMutation.isPending;
+  const progress = isGenerating ? 50 : generatedVideo ? 100 : 0;
 
   const addScene = () => {
     setScenes([
@@ -85,20 +213,43 @@ export default function VideoStudio() {
     <AppLayout title="Video Studio">
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-display font-bold">Video Studio</h1>
-            <p className="text-muted-foreground">Transform scripts into captivating videos</p>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-display font-bold">Video Studio</h1>
+              <p className="text-muted-foreground">Transform scripts into captivating videos</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="gap-1">
-              <Clock className="w-3 h-3" />
-              {totalDuration}s total
-            </Badge>
+          <div className="w-full md:w-auto">
+            <ProjectSelector
+              value={selectedProjectId}
+              onValueChange={setSelectedProjectId}
+              placeholder="Select project (optional)"
+            />
           </div>
         </div>
 
-        <Tabs defaultValue="script" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "generate" | "history")} className="space-y-6">
+          <TabsList className="bg-white/5">
+            <TabsTrigger value="generate">
+              <Sparkles className="w-4 h-4 mr-2" />
+              Generate
+            </TabsTrigger>
+            <TabsTrigger value="history">
+              <Video className="w-4 h-4 mr-2" />
+              History
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="generate">
+            <div className="flex items-center gap-2 mb-4">
+              <Badge variant="outline" className="gap-1">
+                <Clock className="w-3 h-3" />
+                {totalDuration}s total
+              </Badge>
+            </div>
+
+            <Tabs defaultValue="script" className="space-y-6">
           <TabsList className="bg-white/5">
             <TabsTrigger value="script" data-testid="tab-script">
               <Type className="w-4 h-4 mr-2" />
@@ -169,10 +320,14 @@ export default function VideoStudio() {
                 {generatedVideo ? (
                   <div className="space-y-4">
                     <div className="aspect-video rounded-xl bg-black/50 flex items-center justify-center overflow-hidden">
-                      <div className="text-center">
-                        <Video className="w-16 h-16 text-purple-400 mx-auto mb-2 opacity-50" />
-                        <p className="text-muted-foreground">Video Preview</p>
-                      </div>
+                      <video
+                        src={generatedVideo.url}
+                        controls
+                        className="w-full h-full object-contain"
+                        data-testid="generated-video"
+                      >
+                        Your browser does not support the video tag.
+                      </video>
                     </div>
                     <div className="flex gap-3">
                       <Button variant="outline" className="flex-1 glass-input border-white/20">
@@ -338,6 +493,79 @@ export default function VideoStudio() {
                   </div>
                 ))}
               </div>
+            </GlassCard>
+          </TabsContent>
+            </Tabs>
+          </TabsContent>
+
+          <TabsContent value="history">
+            <GlassCard>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-semibold">Video History</h3>
+                <Badge variant="outline">{videoHistory.length} videos</Badge>
+              </div>
+
+              {historyLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <div key={i} className="aspect-video rounded-xl bg-white/5 animate-pulse" />
+                  ))}
+                </div>
+              ) : videoHistory.length === 0 ? (
+                <EmptyState
+                  type="generic"
+                  title="No video history"
+                  description="Generated videos will appear here"
+                />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {videoHistory.map((video) => (
+                    <div
+                      key={video.id}
+                      className="relative group aspect-video rounded-xl overflow-hidden bg-white/5"
+                    >
+                      <video
+                        src={video.url}
+                        className="w-full h-full object-cover"
+                        controls
+                      />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            setSelectedHistoryVideo(video);
+                            setGeneratedVideo(video);
+                            setActiveTab("generate");
+                          }}
+                        >
+                          <Play className="w-3 h-3 mr-1" />
+                          Use
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            const link = document.createElement("a");
+                            link.href = video.url;
+                            link.download = `video-${video.id}.mp4`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            toast({ title: "Download started" });
+                          }}
+                        >
+                          <Download className="w-3 h-3 mr-1" />
+                          Download
+                        </Button>
+                      </div>
+                      <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/60">
+                        <p className="text-xs text-white truncate">{video.prompt}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </GlassCard>
           </TabsContent>
         </Tabs>

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { AppLayout } from "@/components/layout/app-layout";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -11,6 +11,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { ProjectSelector } from "@/components/ui/project-selector";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Mic,
   MicOff,
@@ -24,6 +29,10 @@ import {
   FileText,
   Mail,
   Wand2,
+  Plus,
+  MessageSquare,
+  History,
+  X,
 } from "lucide-react";
 
 interface Message {
@@ -40,13 +49,59 @@ const quickActions = [
   { icon: Copy, label: "Copy" },
 ];
 
+interface Conversation {
+  id: string;
+  title: string;
+  updatedAt: string;
+  projectId?: string | null;
+}
+
 export default function VoiceAssistant() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [inputMode, setInputMode] = useState<"text" | "voice">("text");
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [showNewChatDialog, setShowNewChatDialog] = useState(false);
+  const [newChatTitle, setNewChatTitle] = useState("");
+  const [activeTab, setActiveTab] = useState<"chat" | "history">("chat");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Fetch conversations
+  const { data: conversations = [], isLoading: conversationsLoading } = useQuery<Conversation[]>({
+    queryKey: ["/api/conversations"],
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  // Fetch messages for current conversation
+  const { data: conversationMessages = [] } = useQuery({
+    queryKey: currentConversationId ? [`/api/conversations/${currentConversationId}/messages`] : ["/api/conversations"],
+    enabled: !!currentConversationId,
+    retry: false,
+    refetchOnWindowFocus: false,
+    select: (data: any[]) => {
+      if (!Array.isArray(data)) return [];
+      return data.map((msg) => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        timestamp: new Date(msg.createdAt),
+      }));
+    },
+  });
+
+  // Load messages when conversation changes
+  useEffect(() => {
+    if (currentConversationId && conversationMessages.length > 0) {
+      setMessages(conversationMessages);
+    } else if (!currentConversationId) {
+      setMessages([]);
+    }
+  }, [currentConversationId, conversationMessages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -56,12 +111,62 @@ export default function VoiceAssistant() {
     scrollToBottom();
   }, [messages]);
 
+  // Create conversation mutation
+  const createConversationMutation = useMutation({
+    mutationFn: async (title: string) => {
+      const res = await apiRequest("POST", "/api/conversations", {
+        title: title.trim() || "New Conversation",
+        projectId: selectedProjectId,
+      });
+      return res.json();
+    },
+    onSuccess: (newConversation) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+      setCurrentConversationId(newConversation.id);
+      setShowNewChatDialog(false);
+      setNewChatTitle("");
+      setMessages([]);
+      toast({ title: "New conversation created" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to create conversation", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Save message mutation
+  const saveMessageMutation = useMutation({
+    mutationFn: async ({ conversationId, role, content }: { conversationId: string; role: string; content: string }) => {
+      await apiRequest("POST", `/api/conversations/${conversationId}/messages`, {
+        role,
+        content,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/conversations/${currentConversationId}/messages`] });
+    },
+  });
+
   const chatMutation = useMutation({
     mutationFn: async (message: string) => {
-      const response = await apiRequest("POST", "/api/chat", { message });
+      const response = await apiRequest("POST", "/api/chat", {
+        message,
+        conversationId: currentConversationId,
+      });
+      
+      // Handle 503 Service Unavailable (OpenAI not configured)
+      if (response.status === 503) {
+        const errorData = await response.json();
+        // Return the fallback response so it shows in the chat
+        return {
+          message: errorData.fallbackResponse || "I'm currently unavailable. Please configure the OpenAI API key to enable AI chat features.",
+          error: errorData.error,
+          needsConfiguration: true,
+        };
+      }
+      
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data, sentMessage) => {
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
@@ -69,6 +174,36 @@ export default function VoiceAssistant() {
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // Save messages to conversation if conversation exists
+      if (currentConversationId) {
+        try {
+          // Save user message
+          await saveMessageMutation.mutateAsync({
+            conversationId: currentConversationId,
+            role: "user",
+            content: sentMessage,
+          });
+          // Save assistant message
+          await saveMessageMutation.mutateAsync({
+            conversationId: currentConversationId,
+            role: "assistant",
+            content: assistantMessage.content,
+          });
+        } catch (error) {
+          console.error("Failed to save messages:", error);
+        }
+      }
+      
+      // Show configuration notice if OpenAI is not set up
+      if (data.needsConfiguration) {
+        toast({
+          title: "OpenAI Not Configured",
+          description: data.error || "Please add your OpenAI API key to enable AI features.",
+          variant: "destructive",
+          duration: 5000,
+        });
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -82,6 +217,13 @@ export default function VoiceAssistant() {
   const handleSend = async () => {
     if (!input.trim()) return;
 
+    // Create conversation if none exists
+    if (!currentConversationId) {
+      createConversationMutation.mutate(newChatTitle || "New Conversation");
+      // Wait a bit for conversation to be created
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
@@ -94,6 +236,19 @@ export default function VoiceAssistant() {
     setInput("");
     
     chatMutation.mutate(messageToSend);
+  };
+
+  const handleNewChat = () => {
+    setShowNewChatDialog(true);
+  };
+
+  const handleCreateNewChat = () => {
+    createConversationMutation.mutate(newChatTitle || "New Conversation");
+  };
+
+  const handleSelectConversation = (conversationId: string) => {
+    setCurrentConversationId(conversationId);
+    setActiveTab("chat");
   };
 
   const isTyping = chatMutation.isPending;
@@ -115,10 +270,53 @@ export default function VoiceAssistant() {
   return (
     <AppLayout title="Voice Assistant">
       <div className="flex flex-col h-[calc(100vh-3.5rem)] md:h-[calc(100vh-3.5rem)]">
-        {/* Main chat area */}
-        <div className="flex-1 flex flex-col lg:flex-row gap-4 p-4 md:p-6 overflow-hidden">
-          {/* Chat panel */}
-          <div className="flex-1 flex flex-col min-h-0">
+        {/* Header with project selector and new chat */}
+        <div className="p-4 md:p-6 border-b border-white/10">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={handleNewChat}
+                className="glass-input border-white/20"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                New Chat
+              </Button>
+              {currentConversationId && (
+                <Badge variant="outline">
+                  {conversations.find((c) => c.id === currentConversationId)?.title || "Chat"}
+                </Badge>
+              )}
+            </div>
+            <div className="w-full md:w-auto">
+              <ProjectSelector
+                value={selectedProjectId}
+                onValueChange={setSelectedProjectId}
+                placeholder="Select project (optional)"
+              />
+            </div>
+          </div>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "chat" | "history")} className="flex-1 flex flex-col overflow-hidden">
+          <div className="px-4 md:px-6 pt-4">
+            <TabsList className="bg-white/5">
+              <TabsTrigger value="chat">
+                <MessageSquare className="w-4 h-4 mr-2" />
+                Chat
+              </TabsTrigger>
+              <TabsTrigger value="history">
+                <History className="w-4 h-4 mr-2" />
+                History
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="chat" className="flex-1 flex flex-col overflow-hidden">
+            {/* Main chat area */}
+            <div className="flex-1 flex flex-col lg:flex-row gap-4 p-4 md:p-6 overflow-hidden">
+              {/* Chat panel */}
+              <div className="flex-1 flex flex-col min-h-0">
             <ScrollArea className="flex-1">
               <div className="space-y-4 p-2">
                 {messages.length === 0 ? (
@@ -281,47 +479,103 @@ export default function VoiceAssistant() {
             </div>
           </div>
 
-          {/* Sidebar - Conversation History (Desktop) */}
-          <div className="hidden lg:block w-72 shrink-0">
-            <GlassCard className="h-full">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold">History</h3>
-                <Button size="icon" variant="ghost" data-testid="button-history-more">
-                  <MoreVertical className="w-4 h-4" />
+        </div>
+            </TabsContent>
+
+            <TabsContent value="history" className="flex-1 overflow-hidden">
+              <div className="p-4 md:p-6 h-full overflow-y-auto">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-semibold">Conversation History</h3>
+                  <Badge variant="outline">{conversations.length} conversations</Badge>
+                </div>
+
+                {conversationsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-20 rounded-xl bg-white/5 animate-pulse" />
+                    ))}
+                  </div>
+                ) : conversations.length === 0 ? (
+                  <EmptyState
+                    type="generic"
+                    title="No conversations yet"
+                    description="Start a new chat to begin a conversation"
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    {conversations.map((conversation) => (
+                      <div
+                        key={conversation.id}
+                        className={`p-4 rounded-xl cursor-pointer transition-colors ${
+                          currentConversationId === conversation.id
+                            ? "bg-purple-500/20 border border-purple-500/50"
+                            : "bg-white/5 hover:bg-white/10"
+                        }`}
+                        onClick={() => handleSelectConversation(conversation.id)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                              <MessageSquare className="w-5 h-5 text-purple-400" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{conversation.title}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(conversation.updatedAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          {currentConversationId === conversation.id && (
+                            <Badge variant="outline">Active</Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+
+        {/* New Chat Dialog */}
+        <Dialog open={showNewChatDialog} onOpenChange={setShowNewChatDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Conversation</DialogTitle>
+              <DialogDescription>Start a new chat conversation</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Conversation Title (Optional)</label>
+                <Input
+                  value={newChatTitle}
+                  onChange={(e) => setNewChatTitle(e.target.value)}
+                  placeholder="e.g., Project Discussion"
+                  className="glass-input"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Project (Optional)</label>
+                <ProjectSelector
+                  value={selectedProjectId}
+                  onValueChange={setSelectedProjectId}
+                  placeholder="Select project"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowNewChatDialog(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateNewChat}
+                  disabled={createConversationMutation.isPending}
+                >
+                  {createConversationMutation.isPending ? "Creating..." : "Create Chat"}
                 </Button>
               </div>
-
-              <div className="space-y-2">
-                {[
-                  { title: "Voice generation help", time: "Today" },
-                  { title: "Image prompt ideas", time: "Yesterday" },
-                  { title: "Document analysis", time: "3 days ago" },
-                ].map((conv, i) => (
-                  <div
-                    key={i}
-                    className="p-3 rounded-xl bg-white/5 hover:bg-white/10 cursor-pointer transition-colors group"
-                    data-testid={`conversation-${i}`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{conv.title}</p>
-                        <p className="text-xs text-muted-foreground">{conv.time}</p>
-                      </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button size="icon" variant="ghost" className="w-6 h-6">
-                          <Pin className="w-3 h-3" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="w-6 h-6 text-red-400">
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </GlassCard>
-          </div>
-        </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );

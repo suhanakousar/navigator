@@ -29,6 +29,9 @@ import {
   type InsertWorkflowRun,
   type VoiceModel,
   type InsertVoiceModel,
+  type DocumentActionLog,
+  type InsertDocumentActionLog,
+  documentActionLogs,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -85,6 +88,7 @@ export interface IStorage {
   
   // Workflow run operations
   getWorkflowRuns(workflowId: string): Promise<WorkflowRun[]>;
+  getWorkflowRun(id: string): Promise<WorkflowRun | undefined>;
   createWorkflowRun(run: InsertWorkflowRun): Promise<WorkflowRun>;
   updateWorkflowRun(id: string, run: Partial<WorkflowRun>): Promise<WorkflowRun | undefined>;
   
@@ -93,6 +97,10 @@ export interface IStorage {
   getVoiceModel(id: string): Promise<VoiceModel | undefined>;
   createVoiceModel(model: InsertVoiceModel): Promise<VoiceModel>;
   deleteVoiceModel(id: string): Promise<boolean>;
+  
+  // Document action log operations
+  getDocumentActionLogs(assetId: string, userId: string): Promise<DocumentActionLog[]>;
+  createDocumentActionLog(log: InsertDocumentActionLog): Promise<DocumentActionLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -145,8 +153,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProject(id: string): Promise<boolean> {
-    const result = await db.delete(projects).where(eq(projects.id, id)).returning();
-    return result.length > 0;
+    try {
+      // First, delete all assets associated with this project
+      await db.delete(assets).where(eq(assets.projectId, id));
+      
+      // Also delete conversations associated with this project
+      const projectConversations = await db.select().from(conversations).where(eq(conversations.projectId, id));
+      for (const conv of projectConversations) {
+        // Delete all messages in these conversations first
+        await db.delete(messages).where(eq(messages.conversationId, conv.id));
+        // Then delete the conversation
+        await db.delete(conversations).where(eq(conversations.id, conv.id));
+      }
+      
+      // Now delete the project
+      const result = await db.delete(projects).where(eq(projects.id, id)).returning();
+      return result.length > 0;
+    } catch (error: any) {
+      console.error("❌ Error deleting project:", error);
+      throw error;
+    }
   }
 
   // Asset operations
@@ -163,14 +189,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAsset(asset: InsertAsset): Promise<Asset> {
-    const [created] = await db.insert(assets).values(asset).returning();
+    // Sanitize metadata before saving to prevent null byte errors
+    const { cleanObject } = await import("./utils/sanitize");
+    const sanitizedAsset = {
+      ...asset,
+      metadata: asset.metadata ? cleanObject(asset.metadata) : {},
+    };
+    const [created] = await db.insert(assets).values(sanitizedAsset).returning();
     return created;
   }
 
   async updateAsset(id: string, asset: Partial<InsertAsset>): Promise<Asset | undefined> {
+    // Sanitize metadata before saving
+    const { cleanObject } = await import("./utils/sanitize");
+    const sanitizedAsset = {
+      ...asset,
+      metadata: asset.metadata ? cleanObject(asset.metadata) : undefined,
+      updatedAt: new Date(),
+    };
     const [updated] = await db
       .update(assets)
-      .set({ ...asset, updatedAt: new Date() })
+      .set(sanitizedAsset)
       .where(eq(assets.id, id))
       .returning();
     return updated;
@@ -301,6 +340,11 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(workflowRuns).where(eq(workflowRuns.workflowId, workflowId)).orderBy(desc(workflowRuns.createdAt));
   }
 
+  async getWorkflowRun(id: string): Promise<WorkflowRun | undefined> {
+    const [run] = await db.select().from(workflowRuns).where(eq(workflowRuns.id, id));
+    return run;
+  }
+
   async createWorkflowRun(run: InsertWorkflowRun): Promise<WorkflowRun> {
     const [created] = await db.insert(workflowRuns).values(run).returning();
     return created;
@@ -329,6 +373,20 @@ export class DatabaseStorage implements IStorage {
   async deleteVoiceModel(id: string): Promise<boolean> {
     const result = await db.delete(voiceModels).where(eq(voiceModels.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Document action log operations
+  async getDocumentActionLogs(assetId: string, userId: string): Promise<DocumentActionLog[]> {
+    return await db
+      .select()
+      .from(documentActionLogs)
+      .where(and(eq(documentActionLogs.assetId, assetId), eq(documentActionLogs.userId, userId)))
+      .orderBy(desc(documentActionLogs.createdAt));
+  }
+
+  async createDocumentActionLog(log: InsertDocumentActionLog): Promise<DocumentActionLog> {
+    const [newLog] = await db.insert(documentActionLogs).values(log).returning();
+    return newLog;
   }
 }
 

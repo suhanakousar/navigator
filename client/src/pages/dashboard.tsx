@@ -4,23 +4,22 @@ import { ModuleGrid } from "@/components/ui/module-card";
 import { GlassCard } from "@/components/ui/glass-card";
 import { AnimatedOrb } from "@/components/ui/animated-orb";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useAuth } from "@/hooks/useAuth";
 import { Sparkles, ArrowRight, Zap, Clock, BarChart3 } from "lucide-react";
+import { LoadingDots } from "@/components/ui/loading-dots";
 
 const modules = [
   "voice-assistant",
   "voice-studio",
   "image-studio",
   "video-studio",
-  "document-analyzer",
-  "automation",
   "projects",
 ] as const;
 
 const quickActions = [
   { label: "Generate Voice", icon: Zap, href: "/voice-studio" },
   { label: "Create Image", icon: Sparkles, href: "/image-studio" },
-  { label: "Analyze Document", icon: BarChart3, href: "/documents" },
 ];
 
 export default function Dashboard() {
@@ -33,8 +32,6 @@ export default function Dashboard() {
       "voice-studio": "/voice-studio",
       "image-studio": "/image-studio",
       "video-studio": "/video-studio",
-      "document-analyzer": "/documents",
-      "automation": "/automations",
       "projects": "/projects",
     };
     navigate(routes[type] || "/");
@@ -94,47 +91,47 @@ export default function Dashboard() {
 
         {/* Stats Row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <GlassCard className="p-4">
+          <GlassCard className="p-4 card-hover-lift">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center pulse-glow">
                 <Zap className="w-5 h-5 text-purple-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold">24</p>
+                <p className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">-</p>
                 <p className="text-xs text-muted-foreground">Generations</p>
               </div>
             </div>
           </GlassCard>
-          <GlassCard className="p-4">
+          <GlassCard className="p-4 card-hover-lift">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center pulse-glow">
                 <BarChart3 className="w-5 h-5 text-cyan-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold">12</p>
+                <p className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">-</p>
                 <p className="text-xs text-muted-foreground">Projects</p>
               </div>
             </div>
           </GlassCard>
-          <GlassCard className="p-4">
+          <GlassCard className="p-4 card-hover-lift">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-pink-500/20 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-pink-500/20 flex items-center justify-center pulse-glow">
                 <Clock className="w-5 h-5 text-pink-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold">3h</p>
+                <p className="text-2xl font-bold bg-gradient-to-r from-pink-400 to-rose-400 bg-clip-text text-transparent">-</p>
                 <p className="text-xs text-muted-foreground">Time Saved</p>
               </div>
             </div>
           </GlassCard>
-          <GlassCard className="p-4">
+          <GlassCard className="p-4 card-hover-lift">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center pulse-glow">
                 <Sparkles className="w-5 h-5 text-emerald-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold">8</p>
-                <p className="text-xs text-muted-foreground">Automations</p>
+                <p className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-green-400 bg-clip-text text-transparent">-</p>
+                <p className="text-xs text-muted-foreground">Projects</p>
               </div>
             </div>
           </GlassCard>
@@ -169,22 +166,12 @@ export default function Dashboard() {
             </Button>
           </div>
 
-          <GlassCard className="divide-y divide-white/10">
-            {[
-              { type: "Voice", title: "Generated narration voice", time: "2 hours ago", color: "bg-cyan-500/20 text-cyan-400" },
-              { type: "Image", title: "Created product mockup", time: "5 hours ago", color: "bg-pink-500/20 text-pink-400" },
-              { type: "Document", title: "Analyzed invoice PDF", time: "1 day ago", color: "bg-emerald-500/20 text-emerald-400" },
-            ].map((activity, i) => (
-              <div key={i} className="flex items-center gap-4 p-4 first:pt-0 last:pb-0 first:pt-4 last:pb-4">
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${activity.color}`}>
-                  {activity.type}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{activity.title}</p>
-                </div>
-                <span className="text-xs text-muted-foreground shrink-0">{activity.time}</span>
-              </div>
-            ))}
+          <GlassCard>
+            <EmptyState
+              type="generic"
+              title="No recent activity"
+              description="Your recent activity will appear here"
+            />
           </GlassCard>
         </div>
       </div>

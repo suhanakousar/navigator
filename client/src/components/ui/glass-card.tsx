@@ -17,7 +17,7 @@ const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(
           {
             "bg-white/5 backdrop-blur-xl border-white/10": variant === "default",
             "bg-white/10 backdrop-blur-xl border-white/15": variant === "elevated",
-            "bg-white/5 backdrop-blur-xl border-white/10 hover-elevate cursor-pointer": variant === "interactive",
+            "bg-white/5 backdrop-blur-xl border-white/10 hover:bg-white/10 hover:border-white/20 hover:scale-[1.02] cursor-pointer": variant === "interactive",
           },
           {
             "shadow-glass": variant === "default",
@@ -25,9 +25,9 @@ const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(
           },
           {
             "": glow === "none",
-            "shadow-neon-purple": glow === "purple",
-            "shadow-neon-cyan": glow === "cyan",
-            "shadow-neon-magenta": glow === "magenta",
+            "shadow-neon-purple hover:shadow-neon-purple": glow === "purple",
+            "shadow-neon-cyan hover:shadow-neon-cyan": glow === "cyan",
+            "shadow-neon-magenta hover:shadow-neon-magenta": glow === "magenta",
           },
           !noPadding && "p-6",
           className

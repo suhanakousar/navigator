@@ -5,7 +5,6 @@ import {
   Image,
   Video,
   FileText,
-  Workflow,
   FolderOpen,
   MessageSquare,
   Settings,
@@ -17,8 +16,6 @@ type ModuleType =
   | "voice-studio"
   | "image-studio"
   | "video-studio"
-  | "document-analyzer"
-  | "automation"
   | "projects"
   | "settings";
 
@@ -69,20 +66,6 @@ const moduleConfig: Record<
     description: "Create videos from scripts",
     gradient: "from-amber-500/20 via-yellow-500/20 to-lime-500/20",
     iconColor: "text-amber-400",
-  },
-  "document-analyzer": {
-    icon: FileText,
-    title: "Document Analyzer",
-    description: "Extract insights from documents",
-    gradient: "from-emerald-500/20 via-teal-500/20 to-cyan-500/20",
-    iconColor: "text-emerald-400",
-  },
-  automation: {
-    icon: Workflow,
-    title: "Automation Hub",
-    description: "Build powerful workflows",
-    gradient: "from-violet-500/20 via-purple-500/20 to-fuchsia-500/20",
-    iconColor: "text-violet-400",
   },
   projects: {
     icon: FolderOpen,

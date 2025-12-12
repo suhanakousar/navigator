@@ -1,15 +1,22 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/app-layout";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadingSkeleton, GridSkeleton } from "@/components/ui/loading-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ProjectSelector } from "@/components/ui/project-selector";
+import { Confetti } from "@/components/ui/confetti";
+import { SuccessAnimation } from "@/components/ui/success-animation";
 import {
   Sparkles,
   RefreshCw,
@@ -44,17 +51,49 @@ interface GeneratedImage {
   id: string;
   url: string;
   prompt: string;
+  assetId?: string;
+  createdAt?: string;
 }
 
 export default function ImageStudio() {
+  const [, setLocation] = useLocation();
+  const { isAuthenticated } = useAuth();
   const [prompt, setPrompt] = useState("");
   const [selectedStyle, setSelectedStyle] = useState("realistic");
   const [selectedRatio, setSelectedRatio] = useState("1:1");
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null);
+  const [showImageDialog, setShowImageDialog] = useState(false);
   const [creativity, setCreativity] = useState([70]);
   const [quality, setQuality] = useState([80]);
+  const [activeTab, setActiveTab] = useState<"generate" | "history">("generate");
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Fetch image history from assets
+  const { data: imageHistory = [], isLoading: historyLoading } = useQuery({
+    queryKey: ["/api/assets"],
+    retry: false,
+    refetchOnWindowFocus: false,
+    select: (data: any[]) => {
+      if (!Array.isArray(data)) return [];
+      return data
+        .filter((asset) => asset.type === "image")
+        .map((asset) => ({
+          id: asset.id,
+          url: asset.url,
+          prompt: asset.metadata?.prompt || asset.name,
+          assetId: asset.id,
+          createdAt: asset.createdAt,
+          style: asset.metadata?.style,
+          size: asset.metadata?.size,
+        }))
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    },
+  });
 
   const ratioToSize: Record<string, string> = {
     "1:1": "1024x1024",
@@ -64,21 +103,43 @@ export default function ImageStudio() {
   };
 
   const generateMutation = useMutation({
-    mutationFn: async (data: { prompt: string; style: string; size: string }) => {
-      const response = await apiRequest("POST", "/api/images/generate", data);
+    mutationFn: async (data: { prompt: string; style: string; size: string; projectId?: string | null }) => {
+      const response = await apiRequest("POST", "/api/images/generate", {
+        ...data,
+        projectId: selectedProjectId,
+      });
+      
+      // Handle 503 Service Unavailable (API not configured)
+      if (response.status === 503) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.error || "Image generation unavailable");
+      }
+      
       return response.json();
     },
     onSuccess: (data) => {
       if (data.images && data.images.length > 0) {
         const newImages: GeneratedImage[] = data.images.map((img: any, i: number) => ({
-          id: `img-${Date.now()}-${i}`,
+          id: img.assetId || `img-${Date.now()}-${i}`,
           url: img.url,
           prompt: img.revisedPrompt || prompt,
+          assetId: img.assetId,
         }));
         setImages(newImages);
+        // Invalidate history to refresh
+        queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+        setShowConfetti(true);
+        setShowSuccess(true);
+        setTimeout(() => setShowConfetti(false), 3000);
         toast({
-          title: "Image generated",
-          description: "Your image has been created successfully.",
+          title: "Image generated ✨",
+          description: `Successfully generated ${data.images.length} image(s) using ${data.provider || "Bytez"}. Images saved to history.`,
+        });
+      } else {
+        toast({
+          title: "No images generated",
+          description: "The generation completed but no images were returned.",
+          variant: "destructive",
         });
       }
     },
@@ -87,12 +148,17 @@ export default function ImageStudio() {
         title: "Generation failed",
         description: error.message || "Failed to generate image. Please try again.",
         variant: "destructive",
+        duration: 5000,
       });
     },
   });
 
   const handleGenerate = () => {
     if (!prompt.trim()) return;
+    if (!isAuthenticated) {
+      setLocation("/signup");
+      return;
+    }
     generateMutation.mutate({
       prompt,
       style: selectedStyle,
@@ -102,16 +168,72 @@ export default function ImageStudio() {
 
   const isGenerating = generateMutation.isPending;
 
+  // Download image function
+  const handleDownload = async (imageUrl: string, prompt: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `image-${prompt.slice(0, 30).replace(/[^a-z0-9]/gi, "-")}-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast({ title: "Image downloaded successfully" });
+    } catch (error) {
+      toast({ title: "Failed to download image", variant: "destructive" });
+    }
+  };
+
+  // Enhance/Regenerate image
+  const handleEnhance = (image: GeneratedImage, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPrompt(image.prompt);
+    setSelectedImage(null);
+    setShowImageDialog(false);
+    // Scroll to top and generate
+    setTimeout(() => {
+      handleGenerate();
+    }, 100);
+  };
+
   return (
     <AppLayout title="Image Studio">
+      <Confetti trigger={showConfetti} />
+      <SuccessAnimation show={showSuccess} message="Images Generated!" onComplete={() => setShowSuccess(false)} />
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-display font-bold">Image Studio</h1>
-          <p className="text-muted-foreground">Generate stunning AI images from text</p>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-display font-bold">Image Studio</h1>
+            <p className="text-muted-foreground">Generate stunning AI images from text</p>
+          </div>
+          <div className="w-full md:w-auto">
+            <ProjectSelector
+              value={selectedProjectId}
+              onValueChange={setSelectedProjectId}
+              placeholder="Select project (optional)"
+            />
+          </div>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "generate" | "history")} className="space-y-6">
+          <TabsList className="bg-white/5">
+            <TabsTrigger value="generate">
+              <Sparkles className="w-4 h-4 mr-2" />
+              Generate
+            </TabsTrigger>
+            <TabsTrigger value="history">
+              <ImageIcon className="w-4 h-4 mr-2" />
+              History
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="generate">
+            <div className="grid lg:grid-cols-3 gap-6">
           {/* Left Panel - Controls */}
           <div className="space-y-6">
             {/* Prompt Input */}
@@ -265,13 +387,31 @@ export default function ImageStudio() {
                         className="w-full h-full object-cover"
                       />
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                        <Button size="icon" variant="secondary" data-testid={`zoom-${image.id}`}>
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          onClick={(e) => {
+                            setSelectedImage(image);
+                            setShowImageDialog(true);
+                          }}
+                          data-testid={`zoom-${image.id}`}
+                        >
                           <ZoomIn className="w-4 h-4" />
                         </Button>
-                        <Button size="icon" variant="secondary" data-testid={`download-${image.id}`}>
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          onClick={(e) => handleDownload(image.url, image.prompt, e)}
+                          data-testid={`download-${image.id}`}
+                        >
                           <Download className="w-4 h-4" />
                         </Button>
-                        <Button size="icon" variant="secondary" data-testid={`edit-${image.id}`}>
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          onClick={(e) => handleEnhance(image, e)}
+                          data-testid={`enhance-${image.id}`}
+                        >
                           <Wand2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -282,6 +422,125 @@ export default function ImageStudio() {
             </GlassCard>
           </div>
         </div>
+          </TabsContent>
+
+          <TabsContent value="history">
+            <GlassCard>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-semibold">Image History</h3>
+                <Badge variant="outline">{imageHistory.length} images</Badge>
+              </div>
+
+              {historyLoading ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                    <LoadingSkeleton key={i} className="aspect-square rounded-xl" />
+                  ))}
+                </div>
+              ) : imageHistory.length === 0 ? (
+                <EmptyState
+                  type="image"
+                  title="No images in history"
+                  description="Generated images will appear here"
+                />
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {imageHistory.map((image) => (
+                    <div
+                      key={image.id}
+                      className="relative group aspect-square rounded-xl overflow-hidden cursor-pointer"
+                      onClick={() => {
+                        setSelectedImage(image);
+                        setShowImageDialog(true);
+                      }}
+                    >
+                      <img
+                        src={image.url}
+                        alt={image.prompt}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          onClick={(e) => {
+                            setSelectedImage(image);
+                            setShowImageDialog(true);
+                          }}
+                        >
+                          <ZoomIn className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          onClick={(e) => handleDownload(image.url, image.prompt, e)}
+                        >
+                          <Download className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          onClick={(e) => handleEnhance(image, e)}
+                        >
+                          <Wand2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </GlassCard>
+          </TabsContent>
+        </Tabs>
+
+        {/* Image Preview Dialog */}
+        <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>{selectedImage?.prompt || "Generated Image"}</DialogTitle>
+            </DialogHeader>
+            {selectedImage && (
+              <div className="space-y-4">
+                <div className="relative w-full aspect-square rounded-xl overflow-hidden bg-white/5">
+                  <img
+                    src={selectedImage.url}
+                    alt={selectedImage.prompt}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="flex gap-2 justify-center">
+                  <Button
+                    variant="outline"
+                    onClick={(e) => handleDownload(selectedImage.url, selectedImage.prompt, e)}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={(e) => {
+                      handleEnhance(selectedImage, e);
+                      setShowImageDialog(false);
+                    }}
+                  >
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    Enhance Again
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedImage.url);
+                      toast({ title: "Image URL copied to clipboard" });
+                    }}
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Copy URL
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );

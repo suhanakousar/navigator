@@ -6,8 +6,6 @@ import {
   Mic,
   Image,
   Video,
-  FileText,
-  Workflow,
   Sparkles,
   ArrowRight,
   Play,
@@ -42,25 +40,11 @@ const features = [
     color: "text-amber-400",
     bg: "bg-amber-500/20",
   },
-  {
-    icon: FileText,
-    title: "Document Analyzer",
-    description: "Extract insights and automate workflows",
-    color: "text-emerald-400",
-    bg: "bg-emerald-500/20",
-  },
-  {
-    icon: Workflow,
-    title: "Automation Hub",
-    description: "Build powerful AI-driven workflows",
-    color: "text-violet-400",
-    bg: "bg-violet-500/20",
-  },
 ];
 
 export default function Landing() {
   const handleLogin = () => {
-    window.location.href = "/api/login";
+    window.location.href = "/login";
   };
 
   return (

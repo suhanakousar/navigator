@@ -22,8 +22,6 @@ import {
   Mic,
   Image,
   Video,
-  FileText,
-  Workflow,
   FolderOpen,
   Settings,
   LogOut,
@@ -36,8 +34,6 @@ const navItems = [
   { title: "Voice Studio", url: "/voice-studio", icon: Mic },
   { title: "Image Studio", url: "/image-studio", icon: Image },
   { title: "Video Studio", url: "/video-studio", icon: Video },
-  { title: "Documents", url: "/documents", icon: FileText },
-  { title: "Automations", url: "/automations", icon: Workflow },
   { title: "Projects", url: "/projects", icon: FolderOpen },
 ];
 
