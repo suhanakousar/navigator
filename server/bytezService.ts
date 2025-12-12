@@ -294,19 +294,32 @@ export async function generateVideoWithGoogle(
   }
 }
 
-// Fallback to Bytez if Google is not available
+// Generate video using Bytez
 export async function generateVideoWithBytez(
   options: GenerateVideoOptions
 ): Promise<GenerateVideoResult> {
   try {
     console.log("🎬 Bytez Video: Starting video generation with prompt:", options.prompt);
     console.log("🎬 Bytez Video: Using API key:", videoApiKey.substring(0, 8) + "...");
+    console.log("🎬 Bytez Video: Model:", "ali-vilab/text-to-video-ms-1.7b");
     
     // Run the video model
+    console.log("🎬 Bytez Video: Calling model.run()...");
     const result = await videoModel.run(options.prompt);
+    console.log("🎬 Bytez: Raw video result type:", typeof result);
     console.log("🎬 Bytez: Raw video result:", JSON.stringify(result, null, 2));
 
-    const { error, output } = result;
+    // Handle different result formats
+    let error: any = null;
+    let output: any = null;
+
+    if (result && typeof result === 'object') {
+      error = result.error;
+      output = result.output;
+    } else if (result) {
+      // Result might be the output directly
+      output = result;
+    }
 
     if (error) {
       console.error("❌ Bytez Video Model Error:", error);
@@ -315,86 +328,107 @@ export async function generateVideoWithBytez(
         : (error as any)?.message || JSON.stringify(error) || "Failed to generate video";
       return { 
         error: errorMessage,
-        raw: output 
+        raw: output || result
       };
     }
 
+    if (!output && !result) {
+      console.error("❌ Bytez Video: No output or result returned");
+      return {
+        error: "No output returned from Bytez video model",
+        raw: result,
+      };
+    }
+
+    // Use output if available, otherwise use result
+    const videoData = output || result;
+
     // Log the output structure for debugging
-    console.log("🎬 Bytez: Video output structure:", {
-      hasOutput: !!output,
-      outputKeys: output ? Object.keys(output) : [],
-      outputType: typeof output,
+    console.log("🎬 Bytez: Video data structure:", {
+      hasVideoData: !!videoData,
+      videoDataKeys: videoData && typeof videoData === 'object' ? Object.keys(videoData) : [],
+      videoDataType: typeof videoData,
+      videoDataValue: typeof videoData === 'string' ? videoData.substring(0, 100) : videoData,
     });
 
     // Handle different output formats
-    if (output) {
+    if (videoData) {
       // Check for videos array
-      if (output.videos) {
-        console.log("🎬 Bytez: Found videos property, type:", typeof output.videos);
+      if (videoData.videos) {
+        console.log("🎬 Bytez: Found videos property, type:", typeof videoData.videos);
         
         // Multiple videos (array)
-        if (Array.isArray(output.videos) && output.videos.length > 0) {
-          console.log("✅ Bytez: Returning", output.videos.length, "video(s)");
+        if (Array.isArray(videoData.videos) && videoData.videos.length > 0) {
+          console.log("✅ Bytez: Returning", videoData.videos.length, "video(s)");
           return {
-            urls: output.videos,
-            raw: output,
+            urls: videoData.videos,
+            raw: videoData,
           };
         }
         
         // Single video URL (string)
-        if (typeof output.videos === "string") {
+        if (typeof videoData.videos === "string") {
           console.log("✅ Bytez: Returning single video URL");
           return {
-            url: output.videos,
-            raw: output,
+            url: videoData.videos,
+            urls: [videoData.videos],
+            raw: videoData,
           };
         }
         
         // First video from array-like object
-        if (output.videos[0]) {
+        if (videoData.videos[0]) {
           console.log("✅ Bytez: Returning first video from array");
           return {
-            url: output.videos[0],
-            urls: Array.isArray(output.videos) ? output.videos : [output.videos[0]],
-            raw: output,
+            url: videoData.videos[0],
+            urls: Array.isArray(videoData.videos) ? videoData.videos : [videoData.videos[0]],
+            raw: videoData,
           };
         }
       }
 
       // Check for direct URL property
-      if (output.url) {
+      if (videoData.url) {
         console.log("✅ Bytez: Returning direct video URL");
         return {
-          url: output.url,
-          raw: output,
+          url: videoData.url,
+          urls: [videoData.url],
+          raw: videoData,
         };
       }
 
-      // Check if output itself is a URL string
-      if (typeof output === "string" && (output.startsWith("http") || output.startsWith("data:"))) {
-        console.log("✅ Bytez: Output is a video URL string");
-        return {
-          url: output,
-          raw: { url: output },
-        };
+      // Check if videoData itself is a URL string
+      if (typeof videoData === "string") {
+        if (videoData.startsWith("http") || videoData.startsWith("https") || videoData.startsWith("data:")) {
+          console.log("✅ Bytez: Video data is a video URL string");
+          return {
+            url: videoData,
+            urls: [videoData],
+            raw: { url: videoData },
+          };
+        } else {
+          console.log("⚠️ Bytez: Video data is a string but not a URL:", videoData.substring(0, 100));
+        }
       }
 
       // Check for video file or data
-      if (output.video || output.file) {
-        const videoData = output.video || output.file;
+      if (videoData.video || videoData.file) {
+        const videoFile = videoData.video || videoData.file;
         console.log("✅ Bytez: Found video file/data");
+        const videoUrl = typeof videoFile === 'string' ? videoFile : (videoFile?.url || JSON.stringify(videoFile));
         return {
-          url: typeof videoData === 'string' ? videoData : JSON.stringify(videoData),
-          raw: output,
+          url: videoUrl,
+          urls: [videoUrl],
+          raw: videoData,
         };
       }
     }
 
     // If no video found in expected format, return error with full output for debugging
-    console.error("❌ Bytez: No video URL found in response. Full output:", JSON.stringify(output, null, 2));
+    console.error("❌ Bytez: No video URL found in response. Full video data:", JSON.stringify(videoData, null, 2));
     return {
-      error: "No video URL found in response. Check server logs for details.",
-      raw: output,
+      error: "No video URL found in response. The API may have returned an unexpected format. Check server logs for details.",
+      raw: videoData || result,
     };
   } catch (err: any) {
     console.error("❌ Bytez Video Service Exception:", err);
