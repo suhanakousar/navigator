@@ -10,6 +10,211 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
+// shared/schema.ts
+var schema_exports = {};
+__export(schema_exports, {
+  assetTypeEnum: () => assetTypeEnum,
+  assets: () => assets,
+  conversations: () => conversations,
+  documentActionLogs: () => documentActionLogs,
+  documentActionStatusEnum: () => documentActionStatusEnum,
+  documentActionTypeEnum: () => documentActionTypeEnum,
+  insertAssetSchema: () => insertAssetSchema,
+  insertConversationSchema: () => insertConversationSchema,
+  insertDocumentActionLogSchema: () => insertDocumentActionLogSchema,
+  insertJobSchema: () => insertJobSchema,
+  insertMemorySchema: () => insertMemorySchema,
+  insertMessageSchema: () => insertMessageSchema,
+  insertProjectSchema: () => insertProjectSchema,
+  insertUserSchema: () => insertUserSchema,
+  insertVoiceModelSchema: () => insertVoiceModelSchema,
+  insertWorkflowRunSchema: () => insertWorkflowRunSchema,
+  insertWorkflowSchema: () => insertWorkflowSchema,
+  jobStatusEnum: () => jobStatusEnum,
+  jobs: () => jobs,
+  memories: () => memories,
+  messageRoleEnum: () => messageRoleEnum,
+  messages: () => messages,
+  projects: () => projects,
+  sessions: () => sessions,
+  users: () => users,
+  voiceModels: () => voiceModels,
+  workflowRuns: () => workflowRuns,
+  workflows: () => workflows
+});
+import { sql } from "drizzle-orm";
+import {
+  index,
+  jsonb,
+  pgTable,
+  timestamp,
+  varchar,
+  text,
+  boolean,
+  integer,
+  pgEnum
+} from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+var assetTypeEnum, jobStatusEnum, messageRoleEnum, documentActionTypeEnum, documentActionStatusEnum, sessions, users, projects, assets, conversations, messages, memories, jobs, workflows, workflowRuns, voiceModels, documentActionLogs, insertUserSchema, insertProjectSchema, insertAssetSchema, insertConversationSchema, insertMessageSchema, insertMemorySchema, insertJobSchema, insertWorkflowSchema, insertWorkflowRunSchema, insertVoiceModelSchema, insertDocumentActionLogSchema;
+var init_schema = __esm({
+  "shared/schema.ts"() {
+    "use strict";
+    assetTypeEnum = pgEnum("asset_type", ["voice", "image", "video", "document"]);
+    jobStatusEnum = pgEnum("job_status", ["pending", "processing", "completed", "failed"]);
+    messageRoleEnum = pgEnum("message_role", ["user", "assistant", "system"]);
+    documentActionTypeEnum = pgEnum("document_action_type", ["autofill", "email", "task", "summary", "extract"]);
+    documentActionStatusEnum = pgEnum("document_action_status", ["success", "failed", "pending", "needs_input"]);
+    sessions = pgTable(
+      "sessions",
+      {
+        sid: varchar("sid").primaryKey(),
+        sess: jsonb("sess").notNull(),
+        expire: timestamp("expire").notNull()
+      },
+      (table) => [index("IDX_session_expire").on(table.expire)]
+    );
+    users = pgTable("users", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      email: varchar("email").unique(),
+      firstName: varchar("first_name"),
+      lastName: varchar("last_name"),
+      profileImageUrl: varchar("profile_image_url"),
+      onboardingCompleted: boolean("onboarding_completed").default(false),
+      preferences: jsonb("preferences").default({}),
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    });
+    projects = pgTable("projects", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      userId: varchar("user_id").notNull().references(() => users.id),
+      title: varchar("title").notNull(),
+      description: text("description"),
+      isPublic: boolean("is_public").default(false),
+      isStarred: boolean("is_starred").default(false),
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    });
+    assets = pgTable("assets", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      projectId: varchar("project_id").references(() => projects.id),
+      userId: varchar("user_id").notNull().references(() => users.id),
+      type: assetTypeEnum("type").notNull(),
+      name: varchar("name").notNull(),
+      url: varchar("url"),
+      thumbnailUrl: varchar("thumbnail_url"),
+      metadata: jsonb("metadata").default({}),
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    });
+    conversations = pgTable("conversations", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      userId: varchar("user_id").notNull().references(() => users.id),
+      title: varchar("title").default("New Conversation"),
+      projectId: varchar("project_id").references(() => projects.id),
+      isPinned: boolean("is_pinned").default(false),
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    });
+    messages = pgTable("messages", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      conversationId: varchar("conversation_id").notNull().references(() => conversations.id),
+      role: messageRoleEnum("role").notNull(),
+      content: text("content").notNull(),
+      audioUrl: varchar("audio_url"),
+      createdAt: timestamp("created_at").defaultNow()
+    });
+    memories = pgTable("memories", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      userId: varchar("user_id").notNull().references(() => users.id),
+      key: varchar("key").notNull(),
+      value: text("value").notNull(),
+      consent: boolean("consent").default(true),
+      expiresAt: timestamp("expires_at"),
+      createdAt: timestamp("created_at").defaultNow()
+    });
+    jobs = pgTable("jobs", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      userId: varchar("user_id").notNull().references(() => users.id),
+      type: varchar("type").notNull(),
+      status: jobStatusEnum("status").default("pending"),
+      input: jsonb("input").default({}),
+      result: jsonb("result"),
+      resultUrl: varchar("result_url"),
+      errorMessage: text("error_message"),
+      createdAt: timestamp("created_at").defaultNow(),
+      completedAt: timestamp("completed_at")
+    });
+    workflows = pgTable("workflows", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      userId: varchar("user_id").notNull().references(() => users.id),
+      name: varchar("name").notNull(),
+      description: text("description"),
+      nodes: jsonb("nodes").default([]),
+      edges: jsonb("edges").default([]),
+      isActive: boolean("is_active").default(false),
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    });
+    workflowRuns = pgTable("workflow_runs", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      workflowId: varchar("workflow_id").notNull().references(() => workflows.id),
+      userId: varchar("user_id").notNull().references(() => users.id),
+      status: jobStatusEnum("status").default("pending"),
+      logs: jsonb("logs").default([]),
+      createdAt: timestamp("created_at").defaultNow(),
+      completedAt: timestamp("completed_at")
+    });
+    voiceModels = pgTable("voice_models", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      userId: varchar("user_id").notNull().references(() => users.id),
+      name: varchar("name").notNull(),
+      isPreset: boolean("is_preset").default(false),
+      voiceId: varchar("voice_id"),
+      settings: jsonb("settings").default({}),
+      createdAt: timestamp("created_at").defaultNow()
+    });
+    documentActionLogs = pgTable("document_action_logs", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      assetId: varchar("asset_id").references(() => assets.id),
+      userId: varchar("user_id").notNull().references(() => users.id),
+      actionType: documentActionTypeEnum("action_type").notNull(),
+      status: documentActionStatusEnum("status").default("pending"),
+      dataUsed: jsonb("data_used").default({}),
+      result: jsonb("result"),
+      confidenceScore: integer("confidence_score"),
+      errorMessage: text("error_message"),
+      createdAt: timestamp("created_at").defaultNow()
+    });
+    insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
+    insertProjectSchema = z.object({
+      userId: z.string().min(1),
+      title: z.string().min(1).max(255),
+      description: z.union([z.string(), z.null()]).optional(),
+      isPublic: z.boolean().optional().default(false),
+      isStarred: z.boolean().optional().default(false)
+    });
+    insertAssetSchema = createInsertSchema(assets).omit({ id: true, createdAt: true, updatedAt: true });
+    insertConversationSchema = createInsertSchema(conversations).omit({ id: true, createdAt: true, updatedAt: true });
+    insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
+    insertMemorySchema = createInsertSchema(memories).omit({ id: true, createdAt: true });
+    insertJobSchema = createInsertSchema(jobs).omit({ id: true, createdAt: true, completedAt: true });
+    insertWorkflowSchema = z.object({
+      userId: z.string().min(1),
+      name: z.string().min(1),
+      description: z.string().nullable().optional(),
+      nodes: z.any().optional().default([]),
+      // JSONB - accept any JSON
+      edges: z.any().optional().default([]),
+      // JSONB - accept any JSON
+      isActive: z.boolean().optional().default(false)
+    });
+    insertWorkflowRunSchema = createInsertSchema(workflowRuns).omit({ id: true, createdAt: true, completedAt: true });
+    insertVoiceModelSchema = createInsertSchema(voiceModels).omit({ id: true, createdAt: true });
+    insertDocumentActionLogSchema = createInsertSchema(documentActionLogs).omit({ id: true, createdAt: true });
+  }
+});
+
 // server/db.ts
 var db_exports = {};
 __export(db_exports, {
@@ -18,7 +223,6 @@ __export(db_exports, {
 });
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
-import * as schema from "@shared/schema";
 function getPool() {
   if (!_pool) {
     if (!process.env.DATABASE_URL) {
@@ -32,7 +236,7 @@ function getPool() {
 }
 function getDb() {
   if (!_db) {
-    _db = drizzle(getPool(), { schema });
+    _db = drizzle(getPool(), { schema: schema_exports });
   }
   return _db;
 }
@@ -40,6 +244,7 @@ var Pool, _pool, _db, pool, db;
 var init_db = __esm({
   "server/db.ts"() {
     "use strict";
+    init_schema();
     ({ Pool } = pg);
     pool = new Proxy({}, {
       get(_target, prop) {
@@ -92,9 +297,9 @@ function cleanObject(obj) {
   }
   return obj;
 }
-function limitTextLength(text, maxLength = 3e3) {
-  if (!text || text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + "...";
+function limitTextLength(text2, maxLength = 3e3) {
+  if (!text2 || text2.length <= maxLength) return text2;
+  return text2.substring(0, maxLength) + "...";
 }
 function prepareDataForStorage(data, maxSnippetLength = 3e3) {
   if (!data) return data;
@@ -117,24 +322,12 @@ var init_sanitize = __esm({
 });
 
 // server/storage.ts
-import {
-  users,
-  projects,
-  assets,
-  conversations,
-  messages,
-  memories,
-  jobs,
-  workflows,
-  workflowRuns,
-  voiceModels,
-  documentActionLogs
-} from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 var DatabaseStorage, storage;
 var init_storage = __esm({
   "server/storage.ts"() {
     "use strict";
+    init_schema();
     init_db();
     DatabaseStorage = class {
       // User operations
@@ -738,8 +931,1007 @@ var init_bytezService = __esm({
   }
 });
 
+// node_modules/@google/generative-ai/dist/index.mjs
+function getClientHeaders(requestOptions) {
+  const clientHeaders = [];
+  if (requestOptions === null || requestOptions === void 0 ? void 0 : requestOptions.apiClient) {
+    clientHeaders.push(requestOptions.apiClient);
+  }
+  clientHeaders.push(`${PACKAGE_LOG_HEADER}/${PACKAGE_VERSION}`);
+  return clientHeaders.join(" ");
+}
+async function getHeaders(url) {
+  var _a;
+  const headers = new Headers();
+  headers.append("Content-Type", "application/json");
+  headers.append("x-goog-api-client", getClientHeaders(url.requestOptions));
+  headers.append("x-goog-api-key", url.apiKey);
+  let customHeaders = (_a = url.requestOptions) === null || _a === void 0 ? void 0 : _a.customHeaders;
+  if (customHeaders) {
+    if (!(customHeaders instanceof Headers)) {
+      try {
+        customHeaders = new Headers(customHeaders);
+      } catch (e) {
+        throw new GoogleGenerativeAIRequestInputError(`unable to convert customHeaders value ${JSON.stringify(customHeaders)} to Headers: ${e.message}`);
+      }
+    }
+    for (const [headerName, headerValue] of customHeaders.entries()) {
+      if (headerName === "x-goog-api-key") {
+        throw new GoogleGenerativeAIRequestInputError(`Cannot set reserved header name ${headerName}`);
+      } else if (headerName === "x-goog-api-client") {
+        throw new GoogleGenerativeAIRequestInputError(`Header name ${headerName} can only be set using the apiClient field`);
+      }
+      headers.append(headerName, headerValue);
+    }
+  }
+  return headers;
+}
+async function constructModelRequest(model, task, apiKey2, stream, body, requestOptions) {
+  const url = new RequestUrl(model, task, apiKey2, stream, requestOptions);
+  return {
+    url: url.toString(),
+    fetchOptions: Object.assign(Object.assign({}, buildFetchOptions(requestOptions)), { method: "POST", headers: await getHeaders(url), body })
+  };
+}
+async function makeModelRequest(model, task, apiKey2, stream, body, requestOptions = {}, fetchFn = fetch) {
+  const { url, fetchOptions } = await constructModelRequest(model, task, apiKey2, stream, body, requestOptions);
+  return makeRequest(url, fetchOptions, fetchFn);
+}
+async function makeRequest(url, fetchOptions, fetchFn = fetch) {
+  let response;
+  try {
+    response = await fetchFn(url, fetchOptions);
+  } catch (e) {
+    handleResponseError(e, url);
+  }
+  if (!response.ok) {
+    await handleResponseNotOk(response, url);
+  }
+  return response;
+}
+function handleResponseError(e, url) {
+  let err = e;
+  if (err.name === "AbortError") {
+    err = new GoogleGenerativeAIAbortError(`Request aborted when fetching ${url.toString()}: ${e.message}`);
+    err.stack = e.stack;
+  } else if (!(e instanceof GoogleGenerativeAIFetchError || e instanceof GoogleGenerativeAIRequestInputError)) {
+    err = new GoogleGenerativeAIError(`Error fetching from ${url.toString()}: ${e.message}`);
+    err.stack = e.stack;
+  }
+  throw err;
+}
+async function handleResponseNotOk(response, url) {
+  let message = "";
+  let errorDetails;
+  try {
+    const json = await response.json();
+    message = json.error.message;
+    if (json.error.details) {
+      message += ` ${JSON.stringify(json.error.details)}`;
+      errorDetails = json.error.details;
+    }
+  } catch (e) {
+  }
+  throw new GoogleGenerativeAIFetchError(`Error fetching from ${url.toString()}: [${response.status} ${response.statusText}] ${message}`, response.status, response.statusText, errorDetails);
+}
+function buildFetchOptions(requestOptions) {
+  const fetchOptions = {};
+  if ((requestOptions === null || requestOptions === void 0 ? void 0 : requestOptions.signal) !== void 0 || (requestOptions === null || requestOptions === void 0 ? void 0 : requestOptions.timeout) >= 0) {
+    const controller = new AbortController();
+    if ((requestOptions === null || requestOptions === void 0 ? void 0 : requestOptions.timeout) >= 0) {
+      setTimeout(() => controller.abort(), requestOptions.timeout);
+    }
+    if (requestOptions === null || requestOptions === void 0 ? void 0 : requestOptions.signal) {
+      requestOptions.signal.addEventListener("abort", () => {
+        controller.abort();
+      });
+    }
+    fetchOptions.signal = controller.signal;
+  }
+  return fetchOptions;
+}
+function addHelpers(response) {
+  response.text = () => {
+    if (response.candidates && response.candidates.length > 0) {
+      if (response.candidates.length > 1) {
+        console.warn(`This response had ${response.candidates.length} candidates. Returning text from the first candidate only. Access response.candidates directly to use the other candidates.`);
+      }
+      if (hadBadFinishReason(response.candidates[0])) {
+        throw new GoogleGenerativeAIResponseError(`${formatBlockErrorMessage(response)}`, response);
+      }
+      return getText(response);
+    } else if (response.promptFeedback) {
+      throw new GoogleGenerativeAIResponseError(`Text not available. ${formatBlockErrorMessage(response)}`, response);
+    }
+    return "";
+  };
+  response.functionCall = () => {
+    if (response.candidates && response.candidates.length > 0) {
+      if (response.candidates.length > 1) {
+        console.warn(`This response had ${response.candidates.length} candidates. Returning function calls from the first candidate only. Access response.candidates directly to use the other candidates.`);
+      }
+      if (hadBadFinishReason(response.candidates[0])) {
+        throw new GoogleGenerativeAIResponseError(`${formatBlockErrorMessage(response)}`, response);
+      }
+      console.warn(`response.functionCall() is deprecated. Use response.functionCalls() instead.`);
+      return getFunctionCalls(response)[0];
+    } else if (response.promptFeedback) {
+      throw new GoogleGenerativeAIResponseError(`Function call not available. ${formatBlockErrorMessage(response)}`, response);
+    }
+    return void 0;
+  };
+  response.functionCalls = () => {
+    if (response.candidates && response.candidates.length > 0) {
+      if (response.candidates.length > 1) {
+        console.warn(`This response had ${response.candidates.length} candidates. Returning function calls from the first candidate only. Access response.candidates directly to use the other candidates.`);
+      }
+      if (hadBadFinishReason(response.candidates[0])) {
+        throw new GoogleGenerativeAIResponseError(`${formatBlockErrorMessage(response)}`, response);
+      }
+      return getFunctionCalls(response);
+    } else if (response.promptFeedback) {
+      throw new GoogleGenerativeAIResponseError(`Function call not available. ${formatBlockErrorMessage(response)}`, response);
+    }
+    return void 0;
+  };
+  return response;
+}
+function getText(response) {
+  var _a, _b, _c, _d;
+  const textStrings = [];
+  if ((_b = (_a = response.candidates) === null || _a === void 0 ? void 0 : _a[0].content) === null || _b === void 0 ? void 0 : _b.parts) {
+    for (const part of (_d = (_c = response.candidates) === null || _c === void 0 ? void 0 : _c[0].content) === null || _d === void 0 ? void 0 : _d.parts) {
+      if (part.text) {
+        textStrings.push(part.text);
+      }
+      if (part.executableCode) {
+        textStrings.push("\n```" + part.executableCode.language + "\n" + part.executableCode.code + "\n```\n");
+      }
+      if (part.codeExecutionResult) {
+        textStrings.push("\n```\n" + part.codeExecutionResult.output + "\n```\n");
+      }
+    }
+  }
+  if (textStrings.length > 0) {
+    return textStrings.join("");
+  } else {
+    return "";
+  }
+}
+function getFunctionCalls(response) {
+  var _a, _b, _c, _d;
+  const functionCalls = [];
+  if ((_b = (_a = response.candidates) === null || _a === void 0 ? void 0 : _a[0].content) === null || _b === void 0 ? void 0 : _b.parts) {
+    for (const part of (_d = (_c = response.candidates) === null || _c === void 0 ? void 0 : _c[0].content) === null || _d === void 0 ? void 0 : _d.parts) {
+      if (part.functionCall) {
+        functionCalls.push(part.functionCall);
+      }
+    }
+  }
+  if (functionCalls.length > 0) {
+    return functionCalls;
+  } else {
+    return void 0;
+  }
+}
+function hadBadFinishReason(candidate) {
+  return !!candidate.finishReason && badFinishReasons.includes(candidate.finishReason);
+}
+function formatBlockErrorMessage(response) {
+  var _a, _b, _c;
+  let message = "";
+  if ((!response.candidates || response.candidates.length === 0) && response.promptFeedback) {
+    message += "Response was blocked";
+    if ((_a = response.promptFeedback) === null || _a === void 0 ? void 0 : _a.blockReason) {
+      message += ` due to ${response.promptFeedback.blockReason}`;
+    }
+    if ((_b = response.promptFeedback) === null || _b === void 0 ? void 0 : _b.blockReasonMessage) {
+      message += `: ${response.promptFeedback.blockReasonMessage}`;
+    }
+  } else if ((_c = response.candidates) === null || _c === void 0 ? void 0 : _c[0]) {
+    const firstCandidate = response.candidates[0];
+    if (hadBadFinishReason(firstCandidate)) {
+      message += `Candidate was blocked due to ${firstCandidate.finishReason}`;
+      if (firstCandidate.finishMessage) {
+        message += `: ${firstCandidate.finishMessage}`;
+      }
+    }
+  }
+  return message;
+}
+function __await(v) {
+  return this instanceof __await ? (this.v = v, this) : new __await(v);
+}
+function __asyncGenerator(thisArg, _arguments, generator) {
+  if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+  var g = generator.apply(thisArg, _arguments || []), i, q = [];
+  return i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function() {
+    return this;
+  }, i;
+  function verb(n) {
+    if (g[n]) i[n] = function(v) {
+      return new Promise(function(a, b) {
+        q.push([n, v, a, b]) > 1 || resume(n, v);
+      });
+    };
+  }
+  function resume(n, v) {
+    try {
+      step(g[n](v));
+    } catch (e) {
+      settle(q[0][3], e);
+    }
+  }
+  function step(r) {
+    r.value instanceof __await ? Promise.resolve(r.value.v).then(fulfill, reject) : settle(q[0][2], r);
+  }
+  function fulfill(value) {
+    resume("next", value);
+  }
+  function reject(value) {
+    resume("throw", value);
+  }
+  function settle(f, v) {
+    if (f(v), q.shift(), q.length) resume(q[0][0], q[0][1]);
+  }
+}
+function processStream(response) {
+  const inputStream = response.body.pipeThrough(new TextDecoderStream("utf8", { fatal: true }));
+  const responseStream = getResponseStream(inputStream);
+  const [stream1, stream2] = responseStream.tee();
+  return {
+    stream: generateResponseSequence(stream1),
+    response: getResponsePromise(stream2)
+  };
+}
+async function getResponsePromise(stream) {
+  const allResponses = [];
+  const reader = stream.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      return addHelpers(aggregateResponses(allResponses));
+    }
+    allResponses.push(value);
+  }
+}
+function generateResponseSequence(stream) {
+  return __asyncGenerator(this, arguments, function* generateResponseSequence_1() {
+    const reader = stream.getReader();
+    while (true) {
+      const { value, done } = yield __await(reader.read());
+      if (done) {
+        break;
+      }
+      yield yield __await(addHelpers(value));
+    }
+  });
+}
+function getResponseStream(inputStream) {
+  const reader = inputStream.getReader();
+  const stream = new ReadableStream({
+    start(controller) {
+      let currentText = "";
+      return pump();
+      function pump() {
+        return reader.read().then(({ value, done }) => {
+          if (done) {
+            if (currentText.trim()) {
+              controller.error(new GoogleGenerativeAIError("Failed to parse stream"));
+              return;
+            }
+            controller.close();
+            return;
+          }
+          currentText += value;
+          let match = currentText.match(responseLineRE);
+          let parsedResponse;
+          while (match) {
+            try {
+              parsedResponse = JSON.parse(match[1]);
+            } catch (e) {
+              controller.error(new GoogleGenerativeAIError(`Error parsing JSON response: "${match[1]}"`));
+              return;
+            }
+            controller.enqueue(parsedResponse);
+            currentText = currentText.substring(match[0].length);
+            match = currentText.match(responseLineRE);
+          }
+          return pump();
+        }).catch((e) => {
+          let err = e;
+          err.stack = e.stack;
+          if (err.name === "AbortError") {
+            err = new GoogleGenerativeAIAbortError("Request aborted when reading from the stream");
+          } else {
+            err = new GoogleGenerativeAIError("Error reading from the stream");
+          }
+          throw err;
+        });
+      }
+    }
+  });
+  return stream;
+}
+function aggregateResponses(responses) {
+  const lastResponse = responses[responses.length - 1];
+  const aggregatedResponse = {
+    promptFeedback: lastResponse === null || lastResponse === void 0 ? void 0 : lastResponse.promptFeedback
+  };
+  for (const response of responses) {
+    if (response.candidates) {
+      let candidateIndex = 0;
+      for (const candidate of response.candidates) {
+        if (!aggregatedResponse.candidates) {
+          aggregatedResponse.candidates = [];
+        }
+        if (!aggregatedResponse.candidates[candidateIndex]) {
+          aggregatedResponse.candidates[candidateIndex] = {
+            index: candidateIndex
+          };
+        }
+        aggregatedResponse.candidates[candidateIndex].citationMetadata = candidate.citationMetadata;
+        aggregatedResponse.candidates[candidateIndex].groundingMetadata = candidate.groundingMetadata;
+        aggregatedResponse.candidates[candidateIndex].finishReason = candidate.finishReason;
+        aggregatedResponse.candidates[candidateIndex].finishMessage = candidate.finishMessage;
+        aggregatedResponse.candidates[candidateIndex].safetyRatings = candidate.safetyRatings;
+        if (candidate.content && candidate.content.parts) {
+          if (!aggregatedResponse.candidates[candidateIndex].content) {
+            aggregatedResponse.candidates[candidateIndex].content = {
+              role: candidate.content.role || "user",
+              parts: []
+            };
+          }
+          const newPart = {};
+          for (const part of candidate.content.parts) {
+            if (part.text) {
+              newPart.text = part.text;
+            }
+            if (part.functionCall) {
+              newPart.functionCall = part.functionCall;
+            }
+            if (part.executableCode) {
+              newPart.executableCode = part.executableCode;
+            }
+            if (part.codeExecutionResult) {
+              newPart.codeExecutionResult = part.codeExecutionResult;
+            }
+            if (Object.keys(newPart).length === 0) {
+              newPart.text = "";
+            }
+            aggregatedResponse.candidates[candidateIndex].content.parts.push(newPart);
+          }
+        }
+      }
+      candidateIndex++;
+    }
+    if (response.usageMetadata) {
+      aggregatedResponse.usageMetadata = response.usageMetadata;
+    }
+  }
+  return aggregatedResponse;
+}
+async function generateContentStream(apiKey2, model, params, requestOptions) {
+  const response = await makeModelRequest(
+    model,
+    Task.STREAM_GENERATE_CONTENT,
+    apiKey2,
+    /* stream */
+    true,
+    JSON.stringify(params),
+    requestOptions
+  );
+  return processStream(response);
+}
+async function generateContent(apiKey2, model, params, requestOptions) {
+  const response = await makeModelRequest(
+    model,
+    Task.GENERATE_CONTENT,
+    apiKey2,
+    /* stream */
+    false,
+    JSON.stringify(params),
+    requestOptions
+  );
+  const responseJson = await response.json();
+  const enhancedResponse = addHelpers(responseJson);
+  return {
+    response: enhancedResponse
+  };
+}
+function formatSystemInstruction(input) {
+  if (input == null) {
+    return void 0;
+  } else if (typeof input === "string") {
+    return { role: "system", parts: [{ text: input }] };
+  } else if (input.text) {
+    return { role: "system", parts: [input] };
+  } else if (input.parts) {
+    if (!input.role) {
+      return { role: "system", parts: input.parts };
+    } else {
+      return input;
+    }
+  }
+}
+function formatNewContent(request) {
+  let newParts = [];
+  if (typeof request === "string") {
+    newParts = [{ text: request }];
+  } else {
+    for (const partOrString of request) {
+      if (typeof partOrString === "string") {
+        newParts.push({ text: partOrString });
+      } else {
+        newParts.push(partOrString);
+      }
+    }
+  }
+  return assignRoleToPartsAndValidateSendMessageRequest(newParts);
+}
+function assignRoleToPartsAndValidateSendMessageRequest(parts) {
+  const userContent = { role: "user", parts: [] };
+  const functionContent = { role: "function", parts: [] };
+  let hasUserContent = false;
+  let hasFunctionContent = false;
+  for (const part of parts) {
+    if ("functionResponse" in part) {
+      functionContent.parts.push(part);
+      hasFunctionContent = true;
+    } else {
+      userContent.parts.push(part);
+      hasUserContent = true;
+    }
+  }
+  if (hasUserContent && hasFunctionContent) {
+    throw new GoogleGenerativeAIError("Within a single message, FunctionResponse cannot be mixed with other type of part in the request for sending chat message.");
+  }
+  if (!hasUserContent && !hasFunctionContent) {
+    throw new GoogleGenerativeAIError("No content is provided for sending chat message.");
+  }
+  if (hasUserContent) {
+    return userContent;
+  }
+  return functionContent;
+}
+function formatCountTokensInput(params, modelParams) {
+  var _a;
+  let formattedGenerateContentRequest = {
+    model: modelParams === null || modelParams === void 0 ? void 0 : modelParams.model,
+    generationConfig: modelParams === null || modelParams === void 0 ? void 0 : modelParams.generationConfig,
+    safetySettings: modelParams === null || modelParams === void 0 ? void 0 : modelParams.safetySettings,
+    tools: modelParams === null || modelParams === void 0 ? void 0 : modelParams.tools,
+    toolConfig: modelParams === null || modelParams === void 0 ? void 0 : modelParams.toolConfig,
+    systemInstruction: modelParams === null || modelParams === void 0 ? void 0 : modelParams.systemInstruction,
+    cachedContent: (_a = modelParams === null || modelParams === void 0 ? void 0 : modelParams.cachedContent) === null || _a === void 0 ? void 0 : _a.name,
+    contents: []
+  };
+  const containsGenerateContentRequest = params.generateContentRequest != null;
+  if (params.contents) {
+    if (containsGenerateContentRequest) {
+      throw new GoogleGenerativeAIRequestInputError("CountTokensRequest must have one of contents or generateContentRequest, not both.");
+    }
+    formattedGenerateContentRequest.contents = params.contents;
+  } else if (containsGenerateContentRequest) {
+    formattedGenerateContentRequest = Object.assign(Object.assign({}, formattedGenerateContentRequest), params.generateContentRequest);
+  } else {
+    const content = formatNewContent(params);
+    formattedGenerateContentRequest.contents = [content];
+  }
+  return { generateContentRequest: formattedGenerateContentRequest };
+}
+function formatGenerateContentInput(params) {
+  let formattedRequest;
+  if (params.contents) {
+    formattedRequest = params;
+  } else {
+    const content = formatNewContent(params);
+    formattedRequest = { contents: [content] };
+  }
+  if (params.systemInstruction) {
+    formattedRequest.systemInstruction = formatSystemInstruction(params.systemInstruction);
+  }
+  return formattedRequest;
+}
+function formatEmbedContentInput(params) {
+  if (typeof params === "string" || Array.isArray(params)) {
+    const content = formatNewContent(params);
+    return { content };
+  }
+  return params;
+}
+function validateChatHistory(history) {
+  let prevContent = false;
+  for (const currContent of history) {
+    const { role, parts } = currContent;
+    if (!prevContent && role !== "user") {
+      throw new GoogleGenerativeAIError(`First content should be with role 'user', got ${role}`);
+    }
+    if (!POSSIBLE_ROLES.includes(role)) {
+      throw new GoogleGenerativeAIError(`Each item should include role field. Got ${role} but valid roles are: ${JSON.stringify(POSSIBLE_ROLES)}`);
+    }
+    if (!Array.isArray(parts)) {
+      throw new GoogleGenerativeAIError("Content should have 'parts' property with an array of Parts");
+    }
+    if (parts.length === 0) {
+      throw new GoogleGenerativeAIError("Each Content should have at least one part");
+    }
+    const countFields = {
+      text: 0,
+      inlineData: 0,
+      functionCall: 0,
+      functionResponse: 0,
+      fileData: 0,
+      executableCode: 0,
+      codeExecutionResult: 0
+    };
+    for (const part of parts) {
+      for (const key of VALID_PART_FIELDS) {
+        if (key in part) {
+          countFields[key] += 1;
+        }
+      }
+    }
+    const validParts = VALID_PARTS_PER_ROLE[role];
+    for (const key of VALID_PART_FIELDS) {
+      if (!validParts.includes(key) && countFields[key] > 0) {
+        throw new GoogleGenerativeAIError(`Content with role '${role}' can't contain '${key}' part`);
+      }
+    }
+    prevContent = true;
+  }
+}
+function isValidResponse(response) {
+  var _a;
+  if (response.candidates === void 0 || response.candidates.length === 0) {
+    return false;
+  }
+  const content = (_a = response.candidates[0]) === null || _a === void 0 ? void 0 : _a.content;
+  if (content === void 0) {
+    return false;
+  }
+  if (content.parts === void 0 || content.parts.length === 0) {
+    return false;
+  }
+  for (const part of content.parts) {
+    if (part === void 0 || Object.keys(part).length === 0) {
+      return false;
+    }
+    if (part.text !== void 0 && part.text === "") {
+      return false;
+    }
+  }
+  return true;
+}
+async function countTokens(apiKey2, model, params, singleRequestOptions) {
+  const response = await makeModelRequest(model, Task.COUNT_TOKENS, apiKey2, false, JSON.stringify(params), singleRequestOptions);
+  return response.json();
+}
+async function embedContent(apiKey2, model, params, requestOptions) {
+  const response = await makeModelRequest(model, Task.EMBED_CONTENT, apiKey2, false, JSON.stringify(params), requestOptions);
+  return response.json();
+}
+async function batchEmbedContents(apiKey2, model, params, requestOptions) {
+  const requestsWithModel = params.requests.map((request) => {
+    return Object.assign(Object.assign({}, request), { model });
+  });
+  const response = await makeModelRequest(model, Task.BATCH_EMBED_CONTENTS, apiKey2, false, JSON.stringify({ requests: requestsWithModel }), requestOptions);
+  return response.json();
+}
+var SchemaType, ExecutableCodeLanguage, Outcome, POSSIBLE_ROLES, HarmCategory, HarmBlockThreshold, HarmProbability, BlockReason, FinishReason, TaskType, FunctionCallingMode, DynamicRetrievalMode, GoogleGenerativeAIError, GoogleGenerativeAIResponseError, GoogleGenerativeAIFetchError, GoogleGenerativeAIRequestInputError, GoogleGenerativeAIAbortError, DEFAULT_BASE_URL, DEFAULT_API_VERSION, PACKAGE_VERSION, PACKAGE_LOG_HEADER, Task, RequestUrl, badFinishReasons, responseLineRE, VALID_PART_FIELDS, VALID_PARTS_PER_ROLE, SILENT_ERROR, ChatSession, GenerativeModel, GoogleGenerativeAI;
+var init_dist = __esm({
+  "node_modules/@google/generative-ai/dist/index.mjs"() {
+    (function(SchemaType2) {
+      SchemaType2["STRING"] = "string";
+      SchemaType2["NUMBER"] = "number";
+      SchemaType2["INTEGER"] = "integer";
+      SchemaType2["BOOLEAN"] = "boolean";
+      SchemaType2["ARRAY"] = "array";
+      SchemaType2["OBJECT"] = "object";
+    })(SchemaType || (SchemaType = {}));
+    (function(ExecutableCodeLanguage2) {
+      ExecutableCodeLanguage2["LANGUAGE_UNSPECIFIED"] = "language_unspecified";
+      ExecutableCodeLanguage2["PYTHON"] = "python";
+    })(ExecutableCodeLanguage || (ExecutableCodeLanguage = {}));
+    (function(Outcome2) {
+      Outcome2["OUTCOME_UNSPECIFIED"] = "outcome_unspecified";
+      Outcome2["OUTCOME_OK"] = "outcome_ok";
+      Outcome2["OUTCOME_FAILED"] = "outcome_failed";
+      Outcome2["OUTCOME_DEADLINE_EXCEEDED"] = "outcome_deadline_exceeded";
+    })(Outcome || (Outcome = {}));
+    POSSIBLE_ROLES = ["user", "model", "function", "system"];
+    (function(HarmCategory2) {
+      HarmCategory2["HARM_CATEGORY_UNSPECIFIED"] = "HARM_CATEGORY_UNSPECIFIED";
+      HarmCategory2["HARM_CATEGORY_HATE_SPEECH"] = "HARM_CATEGORY_HATE_SPEECH";
+      HarmCategory2["HARM_CATEGORY_SEXUALLY_EXPLICIT"] = "HARM_CATEGORY_SEXUALLY_EXPLICIT";
+      HarmCategory2["HARM_CATEGORY_HARASSMENT"] = "HARM_CATEGORY_HARASSMENT";
+      HarmCategory2["HARM_CATEGORY_DANGEROUS_CONTENT"] = "HARM_CATEGORY_DANGEROUS_CONTENT";
+      HarmCategory2["HARM_CATEGORY_CIVIC_INTEGRITY"] = "HARM_CATEGORY_CIVIC_INTEGRITY";
+    })(HarmCategory || (HarmCategory = {}));
+    (function(HarmBlockThreshold2) {
+      HarmBlockThreshold2["HARM_BLOCK_THRESHOLD_UNSPECIFIED"] = "HARM_BLOCK_THRESHOLD_UNSPECIFIED";
+      HarmBlockThreshold2["BLOCK_LOW_AND_ABOVE"] = "BLOCK_LOW_AND_ABOVE";
+      HarmBlockThreshold2["BLOCK_MEDIUM_AND_ABOVE"] = "BLOCK_MEDIUM_AND_ABOVE";
+      HarmBlockThreshold2["BLOCK_ONLY_HIGH"] = "BLOCK_ONLY_HIGH";
+      HarmBlockThreshold2["BLOCK_NONE"] = "BLOCK_NONE";
+    })(HarmBlockThreshold || (HarmBlockThreshold = {}));
+    (function(HarmProbability2) {
+      HarmProbability2["HARM_PROBABILITY_UNSPECIFIED"] = "HARM_PROBABILITY_UNSPECIFIED";
+      HarmProbability2["NEGLIGIBLE"] = "NEGLIGIBLE";
+      HarmProbability2["LOW"] = "LOW";
+      HarmProbability2["MEDIUM"] = "MEDIUM";
+      HarmProbability2["HIGH"] = "HIGH";
+    })(HarmProbability || (HarmProbability = {}));
+    (function(BlockReason2) {
+      BlockReason2["BLOCKED_REASON_UNSPECIFIED"] = "BLOCKED_REASON_UNSPECIFIED";
+      BlockReason2["SAFETY"] = "SAFETY";
+      BlockReason2["OTHER"] = "OTHER";
+    })(BlockReason || (BlockReason = {}));
+    (function(FinishReason2) {
+      FinishReason2["FINISH_REASON_UNSPECIFIED"] = "FINISH_REASON_UNSPECIFIED";
+      FinishReason2["STOP"] = "STOP";
+      FinishReason2["MAX_TOKENS"] = "MAX_TOKENS";
+      FinishReason2["SAFETY"] = "SAFETY";
+      FinishReason2["RECITATION"] = "RECITATION";
+      FinishReason2["LANGUAGE"] = "LANGUAGE";
+      FinishReason2["BLOCKLIST"] = "BLOCKLIST";
+      FinishReason2["PROHIBITED_CONTENT"] = "PROHIBITED_CONTENT";
+      FinishReason2["SPII"] = "SPII";
+      FinishReason2["MALFORMED_FUNCTION_CALL"] = "MALFORMED_FUNCTION_CALL";
+      FinishReason2["OTHER"] = "OTHER";
+    })(FinishReason || (FinishReason = {}));
+    (function(TaskType2) {
+      TaskType2["TASK_TYPE_UNSPECIFIED"] = "TASK_TYPE_UNSPECIFIED";
+      TaskType2["RETRIEVAL_QUERY"] = "RETRIEVAL_QUERY";
+      TaskType2["RETRIEVAL_DOCUMENT"] = "RETRIEVAL_DOCUMENT";
+      TaskType2["SEMANTIC_SIMILARITY"] = "SEMANTIC_SIMILARITY";
+      TaskType2["CLASSIFICATION"] = "CLASSIFICATION";
+      TaskType2["CLUSTERING"] = "CLUSTERING";
+    })(TaskType || (TaskType = {}));
+    (function(FunctionCallingMode2) {
+      FunctionCallingMode2["MODE_UNSPECIFIED"] = "MODE_UNSPECIFIED";
+      FunctionCallingMode2["AUTO"] = "AUTO";
+      FunctionCallingMode2["ANY"] = "ANY";
+      FunctionCallingMode2["NONE"] = "NONE";
+    })(FunctionCallingMode || (FunctionCallingMode = {}));
+    (function(DynamicRetrievalMode2) {
+      DynamicRetrievalMode2["MODE_UNSPECIFIED"] = "MODE_UNSPECIFIED";
+      DynamicRetrievalMode2["MODE_DYNAMIC"] = "MODE_DYNAMIC";
+    })(DynamicRetrievalMode || (DynamicRetrievalMode = {}));
+    GoogleGenerativeAIError = class extends Error {
+      constructor(message) {
+        super(`[GoogleGenerativeAI Error]: ${message}`);
+      }
+    };
+    GoogleGenerativeAIResponseError = class extends GoogleGenerativeAIError {
+      constructor(message, response) {
+        super(message);
+        this.response = response;
+      }
+    };
+    GoogleGenerativeAIFetchError = class extends GoogleGenerativeAIError {
+      constructor(message, status, statusText, errorDetails) {
+        super(message);
+        this.status = status;
+        this.statusText = statusText;
+        this.errorDetails = errorDetails;
+      }
+    };
+    GoogleGenerativeAIRequestInputError = class extends GoogleGenerativeAIError {
+    };
+    GoogleGenerativeAIAbortError = class extends GoogleGenerativeAIError {
+    };
+    DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com";
+    DEFAULT_API_VERSION = "v1beta";
+    PACKAGE_VERSION = "0.24.1";
+    PACKAGE_LOG_HEADER = "genai-js";
+    (function(Task2) {
+      Task2["GENERATE_CONTENT"] = "generateContent";
+      Task2["STREAM_GENERATE_CONTENT"] = "streamGenerateContent";
+      Task2["COUNT_TOKENS"] = "countTokens";
+      Task2["EMBED_CONTENT"] = "embedContent";
+      Task2["BATCH_EMBED_CONTENTS"] = "batchEmbedContents";
+    })(Task || (Task = {}));
+    RequestUrl = class {
+      constructor(model, task, apiKey2, stream, requestOptions) {
+        this.model = model;
+        this.task = task;
+        this.apiKey = apiKey2;
+        this.stream = stream;
+        this.requestOptions = requestOptions;
+      }
+      toString() {
+        var _a, _b;
+        const apiVersion = ((_a = this.requestOptions) === null || _a === void 0 ? void 0 : _a.apiVersion) || DEFAULT_API_VERSION;
+        const baseUrl4 = ((_b = this.requestOptions) === null || _b === void 0 ? void 0 : _b.baseUrl) || DEFAULT_BASE_URL;
+        let url = `${baseUrl4}/${apiVersion}/${this.model}:${this.task}`;
+        if (this.stream) {
+          url += "?alt=sse";
+        }
+        return url;
+      }
+    };
+    badFinishReasons = [
+      FinishReason.RECITATION,
+      FinishReason.SAFETY,
+      FinishReason.LANGUAGE
+    ];
+    responseLineRE = /^data\: (.*)(?:\n\n|\r\r|\r\n\r\n)/;
+    VALID_PART_FIELDS = [
+      "text",
+      "inlineData",
+      "functionCall",
+      "functionResponse",
+      "executableCode",
+      "codeExecutionResult"
+    ];
+    VALID_PARTS_PER_ROLE = {
+      user: ["text", "inlineData"],
+      function: ["functionResponse"],
+      model: ["text", "functionCall", "executableCode", "codeExecutionResult"],
+      // System instructions shouldn't be in history anyway.
+      system: ["text"]
+    };
+    SILENT_ERROR = "SILENT_ERROR";
+    ChatSession = class {
+      constructor(apiKey2, model, params, _requestOptions = {}) {
+        this.model = model;
+        this.params = params;
+        this._requestOptions = _requestOptions;
+        this._history = [];
+        this._sendPromise = Promise.resolve();
+        this._apiKey = apiKey2;
+        if (params === null || params === void 0 ? void 0 : params.history) {
+          validateChatHistory(params.history);
+          this._history = params.history;
+        }
+      }
+      /**
+       * Gets the chat history so far. Blocked prompts are not added to history.
+       * Blocked candidates are not added to history, nor are the prompts that
+       * generated them.
+       */
+      async getHistory() {
+        await this._sendPromise;
+        return this._history;
+      }
+      /**
+       * Sends a chat message and receives a non-streaming
+       * {@link GenerateContentResult}.
+       *
+       * Fields set in the optional {@link SingleRequestOptions} parameter will
+       * take precedence over the {@link RequestOptions} values provided to
+       * {@link GoogleGenerativeAI.getGenerativeModel }.
+       */
+      async sendMessage(request, requestOptions = {}) {
+        var _a, _b, _c, _d, _e, _f;
+        await this._sendPromise;
+        const newContent = formatNewContent(request);
+        const generateContentRequest = {
+          safetySettings: (_a = this.params) === null || _a === void 0 ? void 0 : _a.safetySettings,
+          generationConfig: (_b = this.params) === null || _b === void 0 ? void 0 : _b.generationConfig,
+          tools: (_c = this.params) === null || _c === void 0 ? void 0 : _c.tools,
+          toolConfig: (_d = this.params) === null || _d === void 0 ? void 0 : _d.toolConfig,
+          systemInstruction: (_e = this.params) === null || _e === void 0 ? void 0 : _e.systemInstruction,
+          cachedContent: (_f = this.params) === null || _f === void 0 ? void 0 : _f.cachedContent,
+          contents: [...this._history, newContent]
+        };
+        const chatSessionRequestOptions = Object.assign(Object.assign({}, this._requestOptions), requestOptions);
+        let finalResult;
+        this._sendPromise = this._sendPromise.then(() => generateContent(this._apiKey, this.model, generateContentRequest, chatSessionRequestOptions)).then((result) => {
+          var _a2;
+          if (isValidResponse(result.response)) {
+            this._history.push(newContent);
+            const responseContent = Object.assign({
+              parts: [],
+              // Response seems to come back without a role set.
+              role: "model"
+            }, (_a2 = result.response.candidates) === null || _a2 === void 0 ? void 0 : _a2[0].content);
+            this._history.push(responseContent);
+          } else {
+            const blockErrorMessage = formatBlockErrorMessage(result.response);
+            if (blockErrorMessage) {
+              console.warn(`sendMessage() was unsuccessful. ${blockErrorMessage}. Inspect response object for details.`);
+            }
+          }
+          finalResult = result;
+        }).catch((e) => {
+          this._sendPromise = Promise.resolve();
+          throw e;
+        });
+        await this._sendPromise;
+        return finalResult;
+      }
+      /**
+       * Sends a chat message and receives the response as a
+       * {@link GenerateContentStreamResult} containing an iterable stream
+       * and a response promise.
+       *
+       * Fields set in the optional {@link SingleRequestOptions} parameter will
+       * take precedence over the {@link RequestOptions} values provided to
+       * {@link GoogleGenerativeAI.getGenerativeModel }.
+       */
+      async sendMessageStream(request, requestOptions = {}) {
+        var _a, _b, _c, _d, _e, _f;
+        await this._sendPromise;
+        const newContent = formatNewContent(request);
+        const generateContentRequest = {
+          safetySettings: (_a = this.params) === null || _a === void 0 ? void 0 : _a.safetySettings,
+          generationConfig: (_b = this.params) === null || _b === void 0 ? void 0 : _b.generationConfig,
+          tools: (_c = this.params) === null || _c === void 0 ? void 0 : _c.tools,
+          toolConfig: (_d = this.params) === null || _d === void 0 ? void 0 : _d.toolConfig,
+          systemInstruction: (_e = this.params) === null || _e === void 0 ? void 0 : _e.systemInstruction,
+          cachedContent: (_f = this.params) === null || _f === void 0 ? void 0 : _f.cachedContent,
+          contents: [...this._history, newContent]
+        };
+        const chatSessionRequestOptions = Object.assign(Object.assign({}, this._requestOptions), requestOptions);
+        const streamPromise = generateContentStream(this._apiKey, this.model, generateContentRequest, chatSessionRequestOptions);
+        this._sendPromise = this._sendPromise.then(() => streamPromise).catch((_ignored) => {
+          throw new Error(SILENT_ERROR);
+        }).then((streamResult) => streamResult.response).then((response) => {
+          if (isValidResponse(response)) {
+            this._history.push(newContent);
+            const responseContent = Object.assign({}, response.candidates[0].content);
+            if (!responseContent.role) {
+              responseContent.role = "model";
+            }
+            this._history.push(responseContent);
+          } else {
+            const blockErrorMessage = formatBlockErrorMessage(response);
+            if (blockErrorMessage) {
+              console.warn(`sendMessageStream() was unsuccessful. ${blockErrorMessage}. Inspect response object for details.`);
+            }
+          }
+        }).catch((e) => {
+          if (e.message !== SILENT_ERROR) {
+            console.error(e);
+          }
+        });
+        return streamPromise;
+      }
+    };
+    GenerativeModel = class {
+      constructor(apiKey2, modelParams, _requestOptions = {}) {
+        this.apiKey = apiKey2;
+        this._requestOptions = _requestOptions;
+        if (modelParams.model.includes("/")) {
+          this.model = modelParams.model;
+        } else {
+          this.model = `models/${modelParams.model}`;
+        }
+        this.generationConfig = modelParams.generationConfig || {};
+        this.safetySettings = modelParams.safetySettings || [];
+        this.tools = modelParams.tools;
+        this.toolConfig = modelParams.toolConfig;
+        this.systemInstruction = formatSystemInstruction(modelParams.systemInstruction);
+        this.cachedContent = modelParams.cachedContent;
+      }
+      /**
+       * Makes a single non-streaming call to the model
+       * and returns an object containing a single {@link GenerateContentResponse}.
+       *
+       * Fields set in the optional {@link SingleRequestOptions} parameter will
+       * take precedence over the {@link RequestOptions} values provided to
+       * {@link GoogleGenerativeAI.getGenerativeModel }.
+       */
+      async generateContent(request, requestOptions = {}) {
+        var _a;
+        const formattedParams = formatGenerateContentInput(request);
+        const generativeModelRequestOptions = Object.assign(Object.assign({}, this._requestOptions), requestOptions);
+        return generateContent(this.apiKey, this.model, Object.assign({ generationConfig: this.generationConfig, safetySettings: this.safetySettings, tools: this.tools, toolConfig: this.toolConfig, systemInstruction: this.systemInstruction, cachedContent: (_a = this.cachedContent) === null || _a === void 0 ? void 0 : _a.name }, formattedParams), generativeModelRequestOptions);
+      }
+      /**
+       * Makes a single streaming call to the model and returns an object
+       * containing an iterable stream that iterates over all chunks in the
+       * streaming response as well as a promise that returns the final
+       * aggregated response.
+       *
+       * Fields set in the optional {@link SingleRequestOptions} parameter will
+       * take precedence over the {@link RequestOptions} values provided to
+       * {@link GoogleGenerativeAI.getGenerativeModel }.
+       */
+      async generateContentStream(request, requestOptions = {}) {
+        var _a;
+        const formattedParams = formatGenerateContentInput(request);
+        const generativeModelRequestOptions = Object.assign(Object.assign({}, this._requestOptions), requestOptions);
+        return generateContentStream(this.apiKey, this.model, Object.assign({ generationConfig: this.generationConfig, safetySettings: this.safetySettings, tools: this.tools, toolConfig: this.toolConfig, systemInstruction: this.systemInstruction, cachedContent: (_a = this.cachedContent) === null || _a === void 0 ? void 0 : _a.name }, formattedParams), generativeModelRequestOptions);
+      }
+      /**
+       * Gets a new {@link ChatSession} instance which can be used for
+       * multi-turn chats.
+       */
+      startChat(startChatParams) {
+        var _a;
+        return new ChatSession(this.apiKey, this.model, Object.assign({ generationConfig: this.generationConfig, safetySettings: this.safetySettings, tools: this.tools, toolConfig: this.toolConfig, systemInstruction: this.systemInstruction, cachedContent: (_a = this.cachedContent) === null || _a === void 0 ? void 0 : _a.name }, startChatParams), this._requestOptions);
+      }
+      /**
+       * Counts the tokens in the provided request.
+       *
+       * Fields set in the optional {@link SingleRequestOptions} parameter will
+       * take precedence over the {@link RequestOptions} values provided to
+       * {@link GoogleGenerativeAI.getGenerativeModel }.
+       */
+      async countTokens(request, requestOptions = {}) {
+        const formattedParams = formatCountTokensInput(request, {
+          model: this.model,
+          generationConfig: this.generationConfig,
+          safetySettings: this.safetySettings,
+          tools: this.tools,
+          toolConfig: this.toolConfig,
+          systemInstruction: this.systemInstruction,
+          cachedContent: this.cachedContent
+        });
+        const generativeModelRequestOptions = Object.assign(Object.assign({}, this._requestOptions), requestOptions);
+        return countTokens(this.apiKey, this.model, formattedParams, generativeModelRequestOptions);
+      }
+      /**
+       * Embeds the provided content.
+       *
+       * Fields set in the optional {@link SingleRequestOptions} parameter will
+       * take precedence over the {@link RequestOptions} values provided to
+       * {@link GoogleGenerativeAI.getGenerativeModel }.
+       */
+      async embedContent(request, requestOptions = {}) {
+        const formattedParams = formatEmbedContentInput(request);
+        const generativeModelRequestOptions = Object.assign(Object.assign({}, this._requestOptions), requestOptions);
+        return embedContent(this.apiKey, this.model, formattedParams, generativeModelRequestOptions);
+      }
+      /**
+       * Embeds an array of {@link EmbedContentRequest}s.
+       *
+       * Fields set in the optional {@link SingleRequestOptions} parameter will
+       * take precedence over the {@link RequestOptions} values provided to
+       * {@link GoogleGenerativeAI.getGenerativeModel }.
+       */
+      async batchEmbedContents(batchEmbedContentRequest, requestOptions = {}) {
+        const generativeModelRequestOptions = Object.assign(Object.assign({}, this._requestOptions), requestOptions);
+        return batchEmbedContents(this.apiKey, this.model, batchEmbedContentRequest, generativeModelRequestOptions);
+      }
+    };
+    GoogleGenerativeAI = class {
+      constructor(apiKey2) {
+        this.apiKey = apiKey2;
+      }
+      /**
+       * Gets a {@link GenerativeModel} instance for the provided model name.
+       */
+      getGenerativeModel(modelParams, requestOptions) {
+        if (!modelParams.model) {
+          throw new GoogleGenerativeAIError(`Must provide a model name. Example: genai.getGenerativeModel({ model: 'my-model-name' })`);
+        }
+        return new GenerativeModel(this.apiKey, modelParams, requestOptions);
+      }
+      /**
+       * Creates a {@link GenerativeModel} instance from provided content cache.
+       */
+      getGenerativeModelFromCachedContent(cachedContent, modelParams, requestOptions) {
+        if (!cachedContent.name) {
+          throw new GoogleGenerativeAIRequestInputError("Cached content must contain a `name` field.");
+        }
+        if (!cachedContent.model) {
+          throw new GoogleGenerativeAIRequestInputError("Cached content must contain a `model` field.");
+        }
+        const disallowedDuplicates = ["model", "systemInstruction"];
+        for (const key of disallowedDuplicates) {
+          if ((modelParams === null || modelParams === void 0 ? void 0 : modelParams[key]) && cachedContent[key] && (modelParams === null || modelParams === void 0 ? void 0 : modelParams[key]) !== cachedContent[key]) {
+            if (key === "model") {
+              const modelParamsComp = modelParams.model.startsWith("models/") ? modelParams.model.replace("models/", "") : modelParams.model;
+              const cachedContentComp = cachedContent.model.startsWith("models/") ? cachedContent.model.replace("models/", "") : cachedContent.model;
+              if (modelParamsComp === cachedContentComp) {
+                continue;
+              }
+            }
+            throw new GoogleGenerativeAIRequestInputError(`Different value for "${key}" specified in modelParams (${modelParams[key]}) and cachedContent (${cachedContent[key]})`);
+          }
+        }
+        const modelParamsFromCache = Object.assign(Object.assign({}, modelParams), { model: cachedContent.model, tools: cachedContent.tools, toolConfig: cachedContent.toolConfig, systemInstruction: cachedContent.systemInstruction, cachedContent });
+        return new GenerativeModel(this.apiKey, modelParamsFromCache, requestOptions);
+      }
+    };
+  }
+});
+
 // server/geminiService.ts
-import { GoogleGenerativeAI } from "@google/generative-ai";
 async function analyzeImageWithGemini(options) {
   try {
     console.log("\u{1F52E} Gemini: Starting document analysis (image/PDF)");
@@ -779,13 +1971,13 @@ Extract all structured data from this document. Return ONLY valid JSON with the 
       prompt
     ]);
     const response = await result.response;
-    const text = response.text();
-    console.log("\u{1F52E} Gemini: Raw response:", text.substring(0, 500));
+    const text2 = response.text();
+    console.log("\u{1F52E} Gemini: Raw response:", text2.substring(0, 500));
     let extractedData = null;
-    let ocrText = text;
+    let ocrText = text2;
     try {
-      const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/```\s*([\s\S]*?)\s*```/);
-      const jsonString = jsonMatch ? jsonMatch[1] : text;
+      const jsonMatch = text2.match(/```json\s*([\s\S]*?)\s*```/) || text2.match(/```\s*([\s\S]*?)\s*```/);
+      const jsonString = jsonMatch ? jsonMatch[1] : text2;
       extractedData = JSON.parse(jsonString);
       console.log("\u2705 Gemini: Successfully parsed JSON response");
       if (extractedData.raw_text_snippet) {
@@ -794,18 +1986,18 @@ Extract all structured data from this document. Return ONLY valid JSON with the 
     } catch (parseError) {
       console.warn("\u26A0\uFE0F Gemini: Failed to parse JSON, using raw text");
       return {
-        text,
-        ocrText: text,
+        text: text2,
+        ocrText: text2,
         extractedData: {
           doc_type: "other",
-          raw_text_snippet: text.substring(0, 1e3)
+          raw_text_snippet: text2.substring(0, 1e3)
         },
         confidence: 0.7
         // Default confidence when JSON parsing fails
       };
     }
     return {
-      text,
+      text: text2,
       ocrText,
       extractedData,
       confidence: 0.95
@@ -824,9 +2016,9 @@ async function generateTextWithGemini(prompt, modelName = "gemini-1.5-flash") {
     const model = genAI.getGenerativeModel({ model: modelName });
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const text = response.text();
+    const text2 = response.text();
     console.log("\u2705 Gemini: Text generated successfully");
-    return { text };
+    return { text: text2 };
   } catch (err) {
     console.error("\u274C Gemini Text Generation Error:", err);
     return {
@@ -841,6 +2033,7 @@ var geminiApiKey, genAI;
 var init_geminiService = __esm({
   "server/geminiService.ts"() {
     "use strict";
+    init_dist();
     geminiApiKey = process.env.GEMINI_API_KEY || "AIzaSyAhyQx7oPQ9ffTeyT91IlUbut0psAxrcMQ";
     genAI = new GoogleGenerativeAI(geminiApiKey);
   }
@@ -913,21 +2106,21 @@ async function summarizeUrl(options) {
     };
   }
 }
-function splitTextIntoChunks(text, maxChars = 1e4, overlap = 500) {
+function splitTextIntoChunks(text2, maxChars = 1e4, overlap = 500) {
   const chunks = [];
   let i = 0;
-  while (i < text.length) {
+  while (i < text2.length) {
     const start = Math.max(0, i - overlap);
-    const chunk = text.slice(start, start + maxChars);
+    const chunk = text2.slice(start, start + maxChars);
     chunks.push(chunk);
     i += maxChars - overlap;
   }
   return chunks;
 }
-async function summarizeTextViaUrl(text, uploadToStorage, options = {}) {
+async function summarizeTextViaUrl(text2, uploadToStorage, options = {}) {
   try {
     const filename = `doc-summary-${Date.now()}.txt`;
-    const textBuffer = Buffer.from(text, "utf-8");
+    const textBuffer = Buffer.from(text2, "utf-8");
     console.log("\u{1F4DD} ApyHub: Uploading text to storage for summarization");
     const url = await uploadToStorage(textBuffer, filename);
     console.log("\u{1F4DD} ApyHub: Text uploaded, URL:", url);
@@ -942,15 +2135,15 @@ async function summarizeTextViaUrl(text, uploadToStorage, options = {}) {
     };
   }
 }
-async function summarizeLargeText(text, uploadToStorage, options = {}) {
+async function summarizeLargeText(text2, uploadToStorage, options = {}) {
   try {
     const maxChars = 8e3;
-    if (text.length <= maxChars) {
-      return await summarizeTextViaUrl(text, uploadToStorage, options);
+    if (text2.length <= maxChars) {
+      return await summarizeTextViaUrl(text2, uploadToStorage, options);
     }
     console.log("\u{1F4DD} ApyHub: Text is large, chunking for summarization");
-    console.log("\u{1F4DD} ApyHub: Text length:", text.length, "chars");
-    const chunks = splitTextIntoChunks(text, maxChars, 500);
+    console.log("\u{1F4DD} ApyHub: Text length:", text2.length, "chars");
+    const chunks = splitTextIntoChunks(text2, maxChars, 500);
     console.log("\u{1F4DD} ApyHub: Split into", chunks.length, "chunks");
     const chunkSummaries = [];
     for (const [idx, chunk] of chunks.entries()) {
@@ -1050,16 +2243,16 @@ async function analyzeDocument(fileBuffer, fileName, mimeType) {
   try {
     console.log("\u{1F4C4} Document Analysis: Starting analysis for file:", fileName, "Type:", mimeType);
     if (mimeType === "text/plain" || mimeType === "text/markdown" || mimeType.startsWith("text/")) {
-      const text = fileBuffer.toString("utf-8");
-      console.log("\u{1F4C4} Processing text document, length:", text.length);
-      let summary = text.substring(0, 500);
+      const text2 = fileBuffer.toString("utf-8");
+      console.log("\u{1F4C4} Processing text document, length:", text2.length);
+      let summary = text2.substring(0, 500);
       try {
         const { isApyHubAvailable: isApyHubAvailable2, summarizeLargeText: summarizeLargeText2 } = await Promise.resolve().then(() => (init_apyhubService(), apyhubService_exports));
         const { uploadTextForApyHub: uploadTextForApyHub2 } = await Promise.resolve().then(() => (init_storageHelper(), storageHelper_exports));
-        if (isApyHubAvailable2() && text.length > 100) {
+        if (isApyHubAvailable2() && text2.length > 100) {
           const serverUrl = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 5678}`;
           const apyhubResult = await summarizeLargeText2(
-            text,
+            text2,
             (buffer, filename) => uploadTextForApyHub2(buffer, filename, serverUrl),
             { summary_length: "medium", output_language: "en" }
           );
@@ -1076,19 +2269,19 @@ async function analyzeDocument(fileBuffer, fileName, mimeType) {
       const fields = [];
       const extractedData = {
         doc_type: "text",
-        raw_text_snippet: text.substring(0, 1e3)
+        raw_text_snippet: text2.substring(0, 1e3)
       };
-      const emailMatch = text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
+      const emailMatch = text2.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
       if (emailMatch) {
         fields.push({ key: "recipient_email", value: emailMatch[0], confidence: 0.7 });
         extractedData.recipient_email = emailMatch[0];
       }
-      const dateMatch = text.match(/\b(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})\b/);
+      const dateMatch = text2.match(/\b(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})\b/);
       if (dateMatch) {
         fields.push({ key: "date", value: dateMatch[0], confidence: 0.6 });
         extractedData.invoice_date = dateMatch[0];
       }
-      const amountMatch = text.match(/(?:USD|INR|EUR|GBP|₹|\$|€|£)\s*[\d,]+\.?\d*/i);
+      const amountMatch = text2.match(/(?:USD|INR|EUR|GBP|₹|\$|€|£)\s*[\d,]+\.?\d*/i);
       if (amountMatch) {
         fields.push({ key: "amount_due", value: amountMatch[0], confidence: 0.6 });
         extractedData.amount_due = { value: parseFloat(amountMatch[0].replace(/[^\d.]/g, "")), currency: "USD" };
@@ -1365,12 +2558,12 @@ Return ONLY valid JSON.`
       if (parsed.recipient_name) fields.push({ key: "recipient_name", value: parsed.recipient_name, confidence: 0.9 });
       if (parsed.recipient_email) fields.push({ key: "recipient_email", value: parsed.recipient_email, confidence: 0.88 });
       if (parsed.doc_type === "resume" || parsed.doc_type === "cv" || fileName.toLowerCase().includes("resume") || fileName.toLowerCase().includes("cv")) {
-        const text = parsed.raw_text_snippet || "";
-        const emailMatch = text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
+        const text2 = parsed.raw_text_snippet || "";
+        const emailMatch = text2.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
         if (emailMatch && !fields.find((f) => f.key === "recipient_email")) {
           fields.push({ key: "recipient_email", value: emailMatch[0], confidence: 0.85 });
         }
-        const phoneMatch = text.match(/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+        const phoneMatch = text2.match(/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
         if (phoneMatch) {
           fields.push({ key: "phone", value: phoneMatch[0], confidence: 0.75 });
         }
@@ -1388,22 +2581,22 @@ Return ONLY valid JSON.`
       try {
         console.log("\u{1F4C4} Processing DOCX file:", fileName);
         const result = await mammoth.extractRawText({ buffer: fileBuffer });
-        const text = sanitizeText(result.value);
-        if (!text || text.length === 0) {
+        const text2 = sanitizeText(result.value);
+        if (!text2 || text2.length === 0) {
           return {
             fields: [],
             error: "Could not extract text from DOCX file. The file may be corrupted or empty."
           };
         }
-        console.log("\u2705 Extracted text from DOCX, length:", text.length);
-        let summary = text.substring(0, 500);
+        console.log("\u2705 Extracted text from DOCX, length:", text2.length);
+        let summary = text2.substring(0, 500);
         try {
           const { isApyHubAvailable: isApyHubAvailable2, summarizeLargeText: summarizeLargeText2 } = await Promise.resolve().then(() => (init_apyhubService(), apyhubService_exports));
           const { uploadTextForApyHub: uploadTextForApyHub2 } = await Promise.resolve().then(() => (init_storageHelper(), storageHelper_exports));
-          if (isApyHubAvailable2() && text.length > 100) {
+          if (isApyHubAvailable2() && text2.length > 100) {
             const serverUrl = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 5678}`;
             const apyhubResult = await summarizeLargeText2(
-              text,
+              text2,
               (buffer, filename) => uploadTextForApyHub2(buffer, filename, serverUrl),
               { summary_length: "medium", output_language: "en" }
             );
@@ -1412,24 +2605,24 @@ Return ONLY valid JSON.`
               console.log("\u2705 ApyHub summary generated for DOCX");
             } else {
               console.warn("\u26A0\uFE0F ApyHub summary failed:", apyhubResult.error);
-              summary = sanitizeText(text.substring(0, 500));
+              summary = sanitizeText(text2.substring(0, 500));
             }
           }
         } catch (summaryError) {
           console.warn("\u26A0\uFE0F ApyHub summary failed, using text snippet:", summaryError.message);
-          summary = sanitizeText(text.substring(0, 500));
+          summary = sanitizeText(text2.substring(0, 500));
         }
         const fields = [];
         const extractedData = {
           doc_type: "document",
-          raw_text_snippet: sanitizeText(text.substring(0, 1e3))
+          raw_text_snippet: sanitizeText(text2.substring(0, 1e3))
         };
-        const emailMatch = text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
+        const emailMatch = text2.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
         if (emailMatch) {
           fields.push({ key: "recipient_email", value: emailMatch[0], confidence: 0.7 });
           extractedData.recipient_email = emailMatch[0];
         }
-        const dateMatch = text.match(/\b(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})\b/);
+        const dateMatch = text2.match(/\b(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})\b/);
         if (dateMatch) {
           fields.push({ key: "date", value: dateMatch[0], confidence: 0.6 });
           extractedData.invoice_date = dateMatch[0];
@@ -1438,7 +2631,7 @@ Return ONLY valid JSON.`
           fields,
           extractedData: sanitizeExtractedData(extractedData),
           summary: sanitizeText(summary),
-          ocrText: sanitizeText(text),
+          ocrText: sanitizeText(text2),
           ocrConfidence: 0.9
         };
       } catch (docxError) {
@@ -1450,11 +2643,11 @@ Return ONLY valid JSON.`
       }
     }
     try {
-      const text = sanitizeText(fileBuffer.toString("utf-8"));
-      if (text.length > 0 && !text.match(/^PK\x03\x04/)) {
-        let summary = text.substring(0, 500);
+      const text2 = sanitizeText(fileBuffer.toString("utf-8"));
+      if (text2.length > 0 && !text2.match(/^PK\x03\x04/)) {
+        let summary = text2.substring(0, 500);
         try {
-          const bytezSummary = await generateDialogueSummary({ text: text.substring(0, 2e3) });
+          const bytezSummary = await generateDialogueSummary({ text: text2.substring(0, 2e3) });
           if (!bytezSummary.error && bytezSummary.summary) {
             summary = sanitizeText(bytezSummary.summary);
             console.log("\u2705 Bytez summary generated for document");
@@ -1466,7 +2659,7 @@ Return ONLY valid JSON.`
           fields: [],
           extractedData: sanitizeExtractedData({
             doc_type: "document",
-            raw_text_snippet: text.substring(0, 1e3)
+            raw_text_snippet: text2.substring(0, 1e3)
           }),
           summary: sanitizeText(summary)
         };
@@ -1501,12 +2694,12 @@ var init_documentService = __esm({
 
 // server/reasonerService.ts
 import OpenAI2 from "openai";
-function simpleHeuristicSummary(text, extracted) {
-  if (!text || text.trim().length === 0) {
+function simpleHeuristicSummary(text2, extracted) {
+  if (!text2 || text2.trim().length === 0) {
     const docType = extracted.doc_type || "document";
     return `This is a ${docType}. No text content was extracted.`;
   }
-  const sentences = text.split(/(?<=[.!?])\s+/).filter((s) => s.trim().length > 20).slice(0, 3);
+  const sentences = text2.split(/(?<=[.!?])\s+/).filter((s) => s.trim().length > 20).slice(0, 3);
   if (sentences.length > 0) {
     let summary = sentences.join(" ");
     if (extracted.issuer) {
@@ -1520,7 +2713,7 @@ function simpleHeuristicSummary(text, extracted) {
     }
     return summary;
   }
-  return text.substring(0, 200) + (text.length > 200 ? "..." : "");
+  return text2.substring(0, 200) + (text2.length > 200 ? "..." : "");
 }
 async function generateSuggestedActions(extracted, rawText) {
   const extractedJson = JSON.stringify(extracted, null, 2);
@@ -2378,17 +3571,6 @@ __export(routes_exports, {
 });
 import { WebSocketServer } from "ws";
 import multer from "multer";
-import {
-  insertProjectSchema,
-  insertAssetSchema,
-  insertConversationSchema,
-  insertMessageSchema,
-  insertMemorySchema,
-  insertJobSchema,
-  insertWorkflowSchema,
-  insertVoiceModelSchema,
-  users as users2
-} from "@shared/schema";
 import OpenAI3 from "openai";
 function getUserId(req) {
   const user = req.user;
@@ -2420,7 +3602,7 @@ async function registerRoutes(httpServer, app2) {
       };
       try {
         const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-        await db2.select().from(users2).limit(1);
+        await db2.select().from(users).limit(1);
         health.database = "connected";
       } catch (dbError) {
         health.database = `error: ${dbError.message}`;
@@ -2910,9 +4092,9 @@ Assistant:`;
           console.error("Failed to save asset:", assetError);
         }
       }
-      const imagesWithAssets = images.map((img, index) => ({
+      const imagesWithAssets = images.map((img, index2) => ({
         ...img,
-        assetId: savedAssets[index]?.id
+        assetId: savedAssets[index2]?.id
       }));
       res.json({
         images: imagesWithAssets,
@@ -3468,13 +4650,13 @@ Assistant:`;
   });
   app2.post("/api/voice/generate", isAuthenticated, async (req, res) => {
     try {
-      const { text, voiceId, speed, pitch, sampleRate, format, projectId } = req.body;
-      if (!text || !text.trim()) {
+      const { text: text2, voiceId, speed, pitch, sampleRate, format, projectId } = req.body;
+      if (!text2 || !text2.trim()) {
         return res.status(400).json({ error: "Text is required" });
       }
-      console.log("\u{1F3A4} Voice Generation: Starting with text:", text.substring(0, 50));
+      console.log("\u{1F3A4} Voice Generation: Starting with text:", text2.substring(0, 50));
       const result = await generateSpeechWithMurf({
-        text: text.trim(),
+        text: text2.trim(),
         voiceId,
         speed,
         pitch,
@@ -3494,11 +4676,11 @@ Assistant:`;
           await storage.createAsset({
             userId,
             type: "voice",
-            name: text.slice(0, 50),
+            name: text2.slice(0, 50),
             url: result.audioUrl,
             projectId: projectId || null,
             metadata: {
-              text,
+              text: text2,
               voiceId: voiceId || "default",
               speed,
               pitch,
@@ -3636,6 +4818,7 @@ var init_routes = __esm({
     init_workflowService();
     init_storageHelper();
     init_sanitize();
+    init_schema();
     openai3 = null;
     if (process.env.OPENAI_API_KEY) {
       openai3 = new OpenAI3({ apiKey: process.env.OPENAI_API_KEY });
@@ -3864,3 +5047,23 @@ async function handler(req, res) {
 export {
   handler as default
 };
+/*! Bundled license information:
+
+@google/generative-ai/dist/index.mjs:
+  (**
+   * @license
+   * Copyright 2024 Google LLC
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License");
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   *   http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   *)
+*/

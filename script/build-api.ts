@@ -58,12 +58,24 @@ async function buildApi() {
     });
   });
 
-  // Use a plugin to externalize all node_modules
+  // Use a plugin to externalize all node_modules (but not local path aliases)
   const externalizeNodeModulesPlugin = {
     name: "externalize-node-modules",
     setup(build: any) {
-      // Externalize all node_modules packages
-      build.onResolve({ filter: /^[^./]|^\.[^./]|^\.\.[^/]/ }, (args: any) => {
+      // Don't externalize local path aliases
+      const localPathAliases = ["@shared", "@/"];
+      
+      build.onResolve({ filter: /.*/ }, (args: any) => {
+        // Skip if it's a local path alias
+        if (localPathAliases.some(alias => args.path.startsWith(alias))) {
+          return; // Let esbuild handle it normally (will be bundled)
+        }
+        
+        // Skip if it's a relative path (./ or ../)
+        if (args.path.startsWith("./") || args.path.startsWith("../")) {
+          return; // Let esbuild handle it normally (will be bundled)
+        }
+        
         // Check if it's already in our explicit external list
         const isExplicitlyExternal = externals.some((ext) => {
           if (ext.includes("*")) {
@@ -73,8 +85,9 @@ async function buildApi() {
           return args.path === ext || args.path.startsWith(ext + "/");
         });
         
-        if (!isExplicitlyExternal) {
-          // Externalize all node_modules
+        // Externalize all node_modules packages (not local paths)
+        if (!isExplicitlyExternal && !args.path.includes("/") && !args.path.startsWith(".")) {
+          // This looks like a node_modules package
           return { path: args.path, external: true };
         }
       });
@@ -98,7 +111,10 @@ async function buildApi() {
       js: "// @ts-nocheck\n",
     },
     resolveExtensions: [".ts", ".tsx", ".js", ".jsx", ".json"],
-    alias: {},
+    alias: {
+      "@shared": "./shared",
+      "@": "./client/src",
+    },
   }).catch((err) => {
     console.error("esbuild error:", err);
     throw err;
