@@ -89,7 +89,9 @@ export default function VideoStudio() {
   // Poll job status
   const pollJobStatus = useMutation({
     mutationFn: async (jobId: string) => {
-      const response = await apiRequest("GET", `/api/jobs/${jobId}`);
+      // Add cache-busting query parameter to prevent 304 responses
+      const timestamp = Date.now();
+      const response = await apiRequest("GET", `/api/jobs/${jobId}?t=${timestamp}`);
       if (!response.ok) {
         throw new Error("Failed to check job status");
       }

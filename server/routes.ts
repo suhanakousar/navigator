@@ -981,6 +981,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const job = await storage.getJob(req.params.id);
       if (!job) return res.status(404).json({ error: "Job not found" });
       if (job.userId !== getUserId(req)) return res.status(404).json({ error: "Job not found" });
+      
+      // Prevent caching for polling - always return fresh data
+      res.set({
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+      });
+      
       res.json(job);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch job" });
