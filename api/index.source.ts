@@ -142,7 +142,7 @@ async function initialize() {
       await routesFn(httpServer, app);
 
       // Error handler
-      app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      app.use((err: any, _req: any, res: any, _next: any) => {
         console.error("Express error:", err);
         if (!res.headersSent) {
           const status = err.status || err.statusCode || 500;
