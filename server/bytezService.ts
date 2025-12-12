@@ -1,14 +1,19 @@
 import Bytez from "bytez.js";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Initialize Bytez SDK for images
 const imageApiKey = process.env.BYTEZ_API_KEY || "349c88bd7835622d5760900f6b0f8a51";
 const imageSdk = new Bytez(imageApiKey);
 const imageModel = imageSdk.model("ZB-Tech/Text-to-Image");
 
-// Initialize Bytez SDK for videos with separate API key
+// Initialize Bytez SDK for videos with separate API key (fallback)
 const videoApiKey = process.env.BYTEZ_VIDEO_API_KEY || "72766a8ab41bb8e6ee002cc4e4dd42c6";
 const videoSdk = new Bytez(videoApiKey);
 const videoModel = videoSdk.model("ali-vilab/text-to-video-ms-1.7b");
+
+// Initialize Google Generative AI for video generation
+const googleApiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || "AIzaSyDMUiPPecWYiH0IdfT6ubMQvyXaRBe0EXM";
+const genAI = new GoogleGenerativeAI(googleApiKey);
 
 // Initialize Bytez SDK for dialogue summary with separate API key
 const dialogueApiKey = process.env.BYTEZ_DIALOGUE_API_KEY || "19ddd0a5c384c7365b8e0bd620351a1e";
@@ -196,6 +201,88 @@ export interface AnalyzeDocumentResult {
   error?: string;
 }
 
+// Generate video using Google Generative AI (Veo 1.5)
+export async function generateVideoWithGoogle(
+  options: GenerateVideoOptions
+): Promise<GenerateVideoResult> {
+  try {
+    console.log("🎬 Google Veo: Starting video generation with prompt:", options.prompt);
+    console.log("🎬 Google Veo: Using API key:", googleApiKey.substring(0, 8) + "...");
+    
+    // Start video generation
+    let operation = await genAI.models.generateVideo({
+      model: "veo-1.5-generate-001",
+      prompt: options.prompt,
+    });
+
+    console.log("🎬 Google Veo: Operation started:", operation.name);
+
+    // Poll until ready (max 5 minutes = 300 seconds)
+    const maxWaitTime = 300000; // 5 minutes
+    const startTime = Date.now();
+    const pollInterval = 8000; // 8 seconds
+
+    while (!operation.done) {
+      const elapsed = Date.now() - startTime;
+      if (elapsed > maxWaitTime) {
+        return {
+          error: "Video generation timeout - operation took longer than 5 minutes",
+        };
+      }
+
+      console.log("🎬 Google Veo: Generating video... (elapsed: " + Math.round(elapsed / 1000) + "s)");
+      await new Promise((res) => setTimeout(res, pollInterval));
+      
+      operation = await genAI.operations.get({ name: operation.name });
+    }
+
+    console.log("✅ Google Veo: Video generation completed");
+
+    // Get the video file from result
+    const videoFile = operation.result?.video;
+    
+    if (!videoFile) {
+      console.error("❌ Google Veo: No video file in result");
+      return {
+        error: "No video file returned from Google Veo",
+        raw: operation.result,
+      };
+    }
+
+    // Extract video URI/URL - handle different response formats
+    let videoUrl: string;
+    
+    if (typeof videoFile === 'string') {
+      videoUrl = videoFile;
+    } else if (videoFile.uri) {
+      videoUrl = videoFile.uri;
+    } else if (videoFile.url) {
+      videoUrl = videoFile.url;
+    } else {
+      // Try to get URI from nested structure
+      videoUrl = (videoFile as any).fileUri || (videoFile as any).uri || JSON.stringify(videoFile);
+    }
+    
+    console.log("✅ Google Veo: Video URL:", videoUrl);
+
+    return {
+      url: videoUrl,
+      raw: {
+        operation: operation.name,
+        videoFile: videoFile,
+        result: operation.result,
+      },
+    };
+  } catch (err: any) {
+    console.error("❌ Google Veo Service Exception:", err);
+    console.error("❌ Error stack:", err.stack);
+    return {
+      error: err.message || err.toString() || "Failed to generate video with Google Veo",
+    };
+  }
+}
+
+// Fallback to Bytez if Google is not available
 export async function generateVideoWithBytez(
   options: GenerateVideoOptions
 ): Promise<GenerateVideoResult> {

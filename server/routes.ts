@@ -4,7 +4,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import multer from "multer";
 import { storage } from "./storage";
 import { isAuthenticated } from "./firebaseAuth";
-import { generateImageWithBytez, generateVideoWithBytez } from "./bytezService";
+import { generateImageWithBytez, generateVideoWithBytez, generateVideoWithGoogle } from "./bytezService";
 import { analyzeDocument } from "./documentService";
 import { generateSuggestedActions } from "./reasonerService";
 import { generateSpeechWithMurf, getMurfVoices } from "./murfService";
@@ -695,31 +695,44 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       console.log("🎬 Video Generation: Starting with prompt:", prompt);
-      const bytezResult = await generateVideoWithBytez({ prompt, duration });
+      
+      // Try Google Veo first, fallback to Bytez
+      let videoResult;
+      try {
+        videoResult = await generateVideoWithGoogle({ prompt, duration });
+        if (videoResult.error) {
+          console.log("⚠️ Google Veo failed, trying Bytez fallback...");
+          videoResult = await generateVideoWithBytez({ prompt, duration });
+        }
+      } catch (googleError: any) {
+        console.warn("⚠️ Google Veo error, trying Bytez fallback:", googleError.message);
+        videoResult = await generateVideoWithBytez({ prompt, duration });
+      }
+      
       clearTimeout(timeoutWarning);
 
-      if (bytezResult.error) {
-        console.error("❌ Video generation failed:", bytezResult.error);
-        console.log("📋 Bytez raw output:", JSON.stringify(bytezResult.raw, null, 2));
+      if (videoResult.error) {
+        console.error("❌ Video generation failed:", videoResult.error);
+        console.log("📋 Video raw output:", JSON.stringify(videoResult.raw, null, 2));
         
         return res.status(503).json({
           error: "Video generation failed",
-          message: bytezResult.error || "Please configure BYTEZ_API_KEY",
+          message: videoResult.error || "Please configure GOOGLE_API_KEY or BYTEZ_VIDEO_API_KEY",
           fallbackResponse: "Video generation is currently unavailable. Please check your API keys.",
-          details: bytezResult.raw ? JSON.stringify(bytezResult.raw) : undefined
+          details: videoResult.raw ? JSON.stringify(videoResult.raw) : undefined
         });
       }
 
       // Get video URLs
-      const urls = bytezResult.urls || (bytezResult.url ? [bytezResult.url] : []);
+      const urls = videoResult.urls || (videoResult.url ? [videoResult.url] : []);
       
       if (urls.length === 0) {
-        console.error("❌ Bytez returned success but no video URLs found");
+        console.error("❌ Video generation returned success but no video URLs found");
         return res.status(503).json({
           error: "No videos returned",
           message: "Video generation completed but no video URLs were returned",
           fallbackResponse: "Video generation failed. Please try again.",
-          details: JSON.stringify(bytezResult.raw)
+          details: JSON.stringify(videoResult.raw)
         });
       }
 
@@ -737,7 +750,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             name: prompt.slice(0, 50),
             url: url,
             projectId: projectId || null,
-            metadata: { prompt, duration, provider: "bytez" },
+            metadata: { prompt, duration, provider: videoResult.raw?.operation ? "google-veo" : "bytez" },
           });
           savedVideos.push({
             id: asset.id,
@@ -757,7 +770,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       res.json({
         videos: savedVideos,
-        provider: "bytez",
+        provider: videoResult.raw?.operation ? "google-veo" : "bytez",
       });
     } catch (error: any) {
       clearTimeout(timeoutWarning);

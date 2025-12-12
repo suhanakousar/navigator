@@ -605,332 +605,6 @@ var init_firebaseAuth = __esm({
   }
 });
 
-// server/bytezService.ts
-import Bytez from "bytez.js";
-async function generateImageWithBytez(options) {
-  try {
-    console.log("\u{1F3A8} Bytez: Starting image generation with prompt:", options.prompt);
-    let enhancedPrompt = options.prompt;
-    if (options.style) {
-      const styleMap = {
-        realistic: "photorealistic, high quality, detailed",
-        "3d": "3D render, CGI, detailed 3D model",
-        anime: "anime style, Japanese animation, vibrant colors",
-        cyberpunk: "cyberpunk, neon lights, futuristic, dark atmosphere",
-        holographic: "holographic, iridescent, prismatic, ethereal glow",
-        fantasy: "fantasy art, magical, mystical, epic"
-      };
-      const styleText = styleMap[options.style] || options.style;
-      enhancedPrompt = `${enhancedPrompt}, ${styleText}`;
-    }
-    console.log("\u{1F3A8} Bytez: Enhanced prompt:", enhancedPrompt);
-    const result = await imageModel.run(enhancedPrompt);
-    console.log("\u{1F3A8} Bytez: Raw result:", JSON.stringify(result, null, 2));
-    const { error, output } = result;
-    if (error) {
-      console.error("\u274C Bytez Model Error:", error);
-      const errorMessage = typeof error === "string" ? error : error?.message || JSON.stringify(error) || "Failed to generate image";
-      return {
-        error: errorMessage,
-        raw: output
-      };
-    }
-    console.log("\u{1F3A8} Bytez: Output structure:", {
-      hasOutput: !!output,
-      outputKeys: output ? Object.keys(output) : [],
-      outputType: typeof output
-    });
-    if (output) {
-      if (output.images) {
-        console.log("\u{1F3A8} Bytez: Found images property, type:", typeof output.images);
-        if (Array.isArray(output.images) && output.images.length > 0) {
-          console.log("\u2705 Bytez: Returning", output.images.length, "images");
-          return {
-            urls: output.images,
-            raw: output
-          };
-        }
-        if (typeof output.images === "string") {
-          console.log("\u2705 Bytez: Returning single image URL");
-          return {
-            url: output.images,
-            raw: output
-          };
-        }
-        if (output.images[0]) {
-          console.log("\u2705 Bytez: Returning first image from array");
-          return {
-            url: output.images[0],
-            urls: Array.isArray(output.images) ? output.images : [output.images[0]],
-            raw: output
-          };
-        }
-      }
-      if (output.url) {
-        console.log("\u2705 Bytez: Returning direct URL");
-        return {
-          url: output.url,
-          raw: output
-        };
-      }
-      if (typeof output === "string" && (output.startsWith("http") || output.startsWith("data:"))) {
-        console.log("\u2705 Bytez: Output is a URL string");
-        return {
-          url: output,
-          raw: { url: output }
-        };
-      }
-      if (output.data || output.base64) {
-        const imageData = output.data || output.base64;
-        console.log("\u2705 Bytez: Found data/base64, converting to data URL");
-        const dataUrl = typeof imageData === "string" && imageData.startsWith("data:") ? imageData : `data:image/png;base64,${imageData}`;
-        return {
-          url: dataUrl,
-          raw: output
-        };
-      }
-    }
-    console.error("\u274C Bytez: No image URL found in response. Full output:", JSON.stringify(output, null, 2));
-    return {
-      error: "No image URL found in response. Check server logs for details.",
-      raw: output
-    };
-  } catch (err) {
-    console.error("\u274C Bytez Service Exception:", err);
-    console.error("\u274C Error stack:", err.stack);
-    return {
-      error: err.message || err.toString() || "Failed to generate image"
-    };
-  }
-}
-async function generateVideoWithBytez(options) {
-  try {
-    console.log("\u{1F3AC} Bytez Video: Starting video generation with prompt:", options.prompt);
-    console.log("\u{1F3AC} Bytez Video: Using API key:", videoApiKey.substring(0, 8) + "...");
-    const result = await videoModel.run(options.prompt);
-    console.log("\u{1F3AC} Bytez: Raw video result:", JSON.stringify(result, null, 2));
-    const { error, output } = result;
-    if (error) {
-      console.error("\u274C Bytez Video Model Error:", error);
-      const errorMessage = typeof error === "string" ? error : error?.message || JSON.stringify(error) || "Failed to generate video";
-      return {
-        error: errorMessage,
-        raw: output
-      };
-    }
-    console.log("\u{1F3AC} Bytez: Video output structure:", {
-      hasOutput: !!output,
-      outputKeys: output ? Object.keys(output) : [],
-      outputType: typeof output
-    });
-    if (output) {
-      if (output.videos) {
-        console.log("\u{1F3AC} Bytez: Found videos property, type:", typeof output.videos);
-        if (Array.isArray(output.videos) && output.videos.length > 0) {
-          console.log("\u2705 Bytez: Returning", output.videos.length, "video(s)");
-          return {
-            urls: output.videos,
-            raw: output
-          };
-        }
-        if (typeof output.videos === "string") {
-          console.log("\u2705 Bytez: Returning single video URL");
-          return {
-            url: output.videos,
-            raw: output
-          };
-        }
-        if (output.videos[0]) {
-          console.log("\u2705 Bytez: Returning first video from array");
-          return {
-            url: output.videos[0],
-            urls: Array.isArray(output.videos) ? output.videos : [output.videos[0]],
-            raw: output
-          };
-        }
-      }
-      if (output.url) {
-        console.log("\u2705 Bytez: Returning direct video URL");
-        return {
-          url: output.url,
-          raw: output
-        };
-      }
-      if (typeof output === "string" && (output.startsWith("http") || output.startsWith("data:"))) {
-        console.log("\u2705 Bytez: Output is a video URL string");
-        return {
-          url: output,
-          raw: { url: output }
-        };
-      }
-      if (output.video || output.file) {
-        const videoData = output.video || output.file;
-        console.log("\u2705 Bytez: Found video file/data");
-        return {
-          url: typeof videoData === "string" ? videoData : JSON.stringify(videoData),
-          raw: output
-        };
-      }
-    }
-    console.error("\u274C Bytez: No video URL found in response. Full output:", JSON.stringify(output, null, 2));
-    return {
-      error: "No video URL found in response. Check server logs for details.",
-      raw: output
-    };
-  } catch (err) {
-    console.error("\u274C Bytez Video Service Exception:", err);
-    console.error("\u274C Error stack:", err.stack);
-    return {
-      error: err.message || err.toString() || "Failed to generate video"
-    };
-  }
-}
-async function generateDialogueSummary(options) {
-  try {
-    if (!options.text || !options.text.trim()) {
-      return {
-        error: "Text is required for dialogue summarization"
-      };
-    }
-    console.log("\u{1F4DD} Bytez Dialogue: Generating dialogue summary...");
-    console.log("\u{1F4DD} Bytez Dialogue: Input text length:", options.text.length);
-    console.log("\u{1F4DD} Bytez Dialogue: Using API key:", dialogueApiKey.substring(0, 8) + "...");
-    const result = await dialogueSummaryModel.run(options.text);
-    console.log("\u{1F4DD} Bytez Dialogue: Raw result:", JSON.stringify(result, null, 2));
-    const { error, output } = result;
-    if (error) {
-      console.error("\u274C Bytez Dialogue Model Error:", error);
-      const errorMessage = typeof error === "string" ? error : error?.message || JSON.stringify(error) || "Failed to generate dialogue summary";
-      return {
-        error: errorMessage
-      };
-    }
-    if (!output) {
-      return {
-        error: "No output received from Bytez API"
-      };
-    }
-    let summary;
-    if (typeof output === "string") {
-      summary = output;
-    } else if (typeof output === "object" && output !== null) {
-      summary = output.summary || output.text || JSON.stringify(output);
-    } else {
-      summary = String(output);
-    }
-    console.log("\u2705 Bytez Dialogue: Dialogue summary generated successfully");
-    console.log("\u{1F4DD} Bytez Dialogue: Summary length:", summary.length);
-    return {
-      summary: summary.trim()
-    };
-  } catch (err) {
-    console.error("\u274C Bytez Dialogue Service Exception:", err);
-    console.error("\u274C Error stack:", err.stack);
-    return {
-      error: err.message || err.toString() || "Bytez dialogue service encountered an unexpected error"
-    };
-  }
-}
-async function analyzeDocumentWithBytez(options) {
-  try {
-    console.log("\u{1F4C4} Bytez Document: Starting document analysis");
-    console.log("\u{1F4C4} Bytez Document: File:", options.fileName, "Type:", options.mimeType);
-    console.log("\u{1F4C4} Bytez Document: Using API key:", documentApiKey.substring(0, 8) + "...");
-    const base64Data = options.fileBuffer.toString("base64");
-    const modelName = options.model || "svjack/dialogue-summary";
-    const documentModel = documentSdk.model(modelName);
-    let input;
-    if (options.mimeType.startsWith("text/")) {
-      input = options.fileBuffer.toString("utf-8");
-    } else if (options.mimeType === "application/pdf") {
-      input = `Document: ${options.fileName}
-Type: PDF
-Base64: ${base64Data.substring(0, 1e3)}...
-
-Extract all text and structured data from this PDF document.`;
-    } else if (options.mimeType.startsWith("image/")) {
-      input = `Document: ${options.fileName}
-Type: Image (${options.mimeType})
-Base64: ${base64Data.substring(0, 1e3)}...
-
-Extract all text and structured data from this image document using OCR.`;
-    } else {
-      try {
-        input = options.fileBuffer.toString("utf-8");
-      } catch {
-        input = `Document: ${options.fileName}
-Type: ${options.mimeType}
-Base64: ${base64Data.substring(0, 1e3)}...`;
-      }
-    }
-    console.log("\u{1F4C4} Bytez Document: Running model:", modelName);
-    const result = await documentModel.run(input);
-    console.log("\u{1F4C4} Bytez Document: Raw result:", JSON.stringify(result, null, 2));
-    const { error, output } = result;
-    if (error) {
-      console.error("\u274C Bytez Document Model Error:", error);
-      const errorMessage = typeof error === "string" ? error : error?.message || JSON.stringify(error) || "Failed to analyze document";
-      return {
-        error: errorMessage
-      };
-    }
-    if (!output) {
-      return {
-        error: "No output received from Bytez API"
-      };
-    }
-    let extractedData = null;
-    let ocrText = "";
-    if (typeof output === "string") {
-      ocrText = output;
-      extractedData = {
-        doc_type: "other",
-        raw_text_snippet: output.substring(0, 1e3)
-      };
-    } else if (typeof output === "object" && output !== null) {
-      extractedData = output;
-      ocrText = output.text || output.ocrText || output.raw_text_snippet || JSON.stringify(output);
-    } else {
-      ocrText = String(output);
-      extractedData = {
-        doc_type: "other",
-        raw_text_snippet: ocrText.substring(0, 1e3)
-      };
-    }
-    console.log("\u2705 Bytez Document: Document analysis completed");
-    console.log("\u{1F4C4} Bytez Document: OCR text length:", ocrText.length);
-    return {
-      extractedData,
-      ocrText: ocrText.trim(),
-      confidence: 0.85
-      // Default confidence for Bytez extraction
-    };
-  } catch (err) {
-    console.error("\u274C Bytez Document Service Exception:", err);
-    console.error("\u274C Error stack:", err.stack);
-    return {
-      error: err.message || err.toString() || "Bytez document service encountered an unexpected error"
-    };
-  }
-}
-var imageApiKey, imageSdk, imageModel, videoApiKey, videoSdk, videoModel, dialogueApiKey, dialogueSdk, dialogueSummaryModel, documentApiKey, documentSdk;
-var init_bytezService = __esm({
-  "server/bytezService.ts"() {
-    "use strict";
-    imageApiKey = process.env.BYTEZ_API_KEY || "349c88bd7835622d5760900f6b0f8a51";
-    imageSdk = new Bytez(imageApiKey);
-    imageModel = imageSdk.model("ZB-Tech/Text-to-Image");
-    videoApiKey = process.env.BYTEZ_VIDEO_API_KEY || "0db3ece932799d9c7809ccd5445e4e5f";
-    videoSdk = new Bytez(videoApiKey);
-    videoModel = videoSdk.model("ali-vilab/text-to-video-ms-1.7b");
-    dialogueApiKey = process.env.BYTEZ_DIALOGUE_API_KEY || "19ddd0a5c384c7365b8e0bd620351a1e";
-    dialogueSdk = new Bytez(dialogueApiKey);
-    dialogueSummaryModel = dialogueSdk.model("svjack/dialogue-summary");
-    documentApiKey = process.env.BYTEZ_DOCUMENT_API_KEY || "e05bb4f31ced25f7d0bd7340eb8d6688";
-    documentSdk = new Bytez(documentApiKey);
-  }
-});
-
 // node_modules/@google/generative-ai/dist/index.mjs
 function getClientHeaders(requestOptions) {
   const clientHeaders = [];
@@ -1931,12 +1605,400 @@ var init_dist = __esm({
   }
 });
 
+// server/bytezService.ts
+import Bytez from "bytez.js";
+async function generateImageWithBytez(options) {
+  try {
+    console.log("\u{1F3A8} Bytez: Starting image generation with prompt:", options.prompt);
+    let enhancedPrompt = options.prompt;
+    if (options.style) {
+      const styleMap = {
+        realistic: "photorealistic, high quality, detailed",
+        "3d": "3D render, CGI, detailed 3D model",
+        anime: "anime style, Japanese animation, vibrant colors",
+        cyberpunk: "cyberpunk, neon lights, futuristic, dark atmosphere",
+        holographic: "holographic, iridescent, prismatic, ethereal glow",
+        fantasy: "fantasy art, magical, mystical, epic"
+      };
+      const styleText = styleMap[options.style] || options.style;
+      enhancedPrompt = `${enhancedPrompt}, ${styleText}`;
+    }
+    console.log("\u{1F3A8} Bytez: Enhanced prompt:", enhancedPrompt);
+    const result = await imageModel.run(enhancedPrompt);
+    console.log("\u{1F3A8} Bytez: Raw result:", JSON.stringify(result, null, 2));
+    const { error, output } = result;
+    if (error) {
+      console.error("\u274C Bytez Model Error:", error);
+      const errorMessage = typeof error === "string" ? error : error?.message || JSON.stringify(error) || "Failed to generate image";
+      return {
+        error: errorMessage,
+        raw: output
+      };
+    }
+    console.log("\u{1F3A8} Bytez: Output structure:", {
+      hasOutput: !!output,
+      outputKeys: output ? Object.keys(output) : [],
+      outputType: typeof output
+    });
+    if (output) {
+      if (output.images) {
+        console.log("\u{1F3A8} Bytez: Found images property, type:", typeof output.images);
+        if (Array.isArray(output.images) && output.images.length > 0) {
+          console.log("\u2705 Bytez: Returning", output.images.length, "images");
+          return {
+            urls: output.images,
+            raw: output
+          };
+        }
+        if (typeof output.images === "string") {
+          console.log("\u2705 Bytez: Returning single image URL");
+          return {
+            url: output.images,
+            raw: output
+          };
+        }
+        if (output.images[0]) {
+          console.log("\u2705 Bytez: Returning first image from array");
+          return {
+            url: output.images[0],
+            urls: Array.isArray(output.images) ? output.images : [output.images[0]],
+            raw: output
+          };
+        }
+      }
+      if (output.url) {
+        console.log("\u2705 Bytez: Returning direct URL");
+        return {
+          url: output.url,
+          raw: output
+        };
+      }
+      if (typeof output === "string" && (output.startsWith("http") || output.startsWith("data:"))) {
+        console.log("\u2705 Bytez: Output is a URL string");
+        return {
+          url: output,
+          raw: { url: output }
+        };
+      }
+      if (output.data || output.base64) {
+        const imageData = output.data || output.base64;
+        console.log("\u2705 Bytez: Found data/base64, converting to data URL");
+        const dataUrl = typeof imageData === "string" && imageData.startsWith("data:") ? imageData : `data:image/png;base64,${imageData}`;
+        return {
+          url: dataUrl,
+          raw: output
+        };
+      }
+    }
+    console.error("\u274C Bytez: No image URL found in response. Full output:", JSON.stringify(output, null, 2));
+    return {
+      error: "No image URL found in response. Check server logs for details.",
+      raw: output
+    };
+  } catch (err) {
+    console.error("\u274C Bytez Service Exception:", err);
+    console.error("\u274C Error stack:", err.stack);
+    return {
+      error: err.message || err.toString() || "Failed to generate image"
+    };
+  }
+}
+async function generateVideoWithGoogle(options) {
+  try {
+    console.log("\u{1F3AC} Google Veo: Starting video generation with prompt:", options.prompt);
+    console.log("\u{1F3AC} Google Veo: Using API key:", googleApiKey.substring(0, 8) + "...");
+    let operation = await genAI.models.generateVideo({
+      model: "veo-1.5-generate-001",
+      prompt: options.prompt
+    });
+    console.log("\u{1F3AC} Google Veo: Operation started:", operation.name);
+    const maxWaitTime = 3e5;
+    const startTime = Date.now();
+    const pollInterval = 8e3;
+    while (!operation.done) {
+      const elapsed = Date.now() - startTime;
+      if (elapsed > maxWaitTime) {
+        return {
+          error: "Video generation timeout - operation took longer than 5 minutes"
+        };
+      }
+      console.log("\u{1F3AC} Google Veo: Generating video... (elapsed: " + Math.round(elapsed / 1e3) + "s)");
+      await new Promise((res) => setTimeout(res, pollInterval));
+      operation = await genAI.operations.get({ name: operation.name });
+    }
+    console.log("\u2705 Google Veo: Video generation completed");
+    const videoFile = operation.result?.video;
+    if (!videoFile) {
+      console.error("\u274C Google Veo: No video file in result");
+      return {
+        error: "No video file returned from Google Veo",
+        raw: operation.result
+      };
+    }
+    let videoUrl;
+    if (typeof videoFile === "string") {
+      videoUrl = videoFile;
+    } else if (videoFile.uri) {
+      videoUrl = videoFile.uri;
+    } else if (videoFile.url) {
+      videoUrl = videoFile.url;
+    } else {
+      videoUrl = videoFile.fileUri || videoFile.uri || JSON.stringify(videoFile);
+    }
+    console.log("\u2705 Google Veo: Video URL:", videoUrl);
+    return {
+      url: videoUrl,
+      raw: {
+        operation: operation.name,
+        videoFile,
+        result: operation.result
+      }
+    };
+  } catch (err) {
+    console.error("\u274C Google Veo Service Exception:", err);
+    console.error("\u274C Error stack:", err.stack);
+    return {
+      error: err.message || err.toString() || "Failed to generate video with Google Veo"
+    };
+  }
+}
+async function generateVideoWithBytez(options) {
+  try {
+    console.log("\u{1F3AC} Bytez Video: Starting video generation with prompt:", options.prompt);
+    console.log("\u{1F3AC} Bytez Video: Using API key:", videoApiKey.substring(0, 8) + "...");
+    const result = await videoModel.run(options.prompt);
+    console.log("\u{1F3AC} Bytez: Raw video result:", JSON.stringify(result, null, 2));
+    const { error, output } = result;
+    if (error) {
+      console.error("\u274C Bytez Video Model Error:", error);
+      const errorMessage = typeof error === "string" ? error : error?.message || JSON.stringify(error) || "Failed to generate video";
+      return {
+        error: errorMessage,
+        raw: output
+      };
+    }
+    console.log("\u{1F3AC} Bytez: Video output structure:", {
+      hasOutput: !!output,
+      outputKeys: output ? Object.keys(output) : [],
+      outputType: typeof output
+    });
+    if (output) {
+      if (output.videos) {
+        console.log("\u{1F3AC} Bytez: Found videos property, type:", typeof output.videos);
+        if (Array.isArray(output.videos) && output.videos.length > 0) {
+          console.log("\u2705 Bytez: Returning", output.videos.length, "video(s)");
+          return {
+            urls: output.videos,
+            raw: output
+          };
+        }
+        if (typeof output.videos === "string") {
+          console.log("\u2705 Bytez: Returning single video URL");
+          return {
+            url: output.videos,
+            raw: output
+          };
+        }
+        if (output.videos[0]) {
+          console.log("\u2705 Bytez: Returning first video from array");
+          return {
+            url: output.videos[0],
+            urls: Array.isArray(output.videos) ? output.videos : [output.videos[0]],
+            raw: output
+          };
+        }
+      }
+      if (output.url) {
+        console.log("\u2705 Bytez: Returning direct video URL");
+        return {
+          url: output.url,
+          raw: output
+        };
+      }
+      if (typeof output === "string" && (output.startsWith("http") || output.startsWith("data:"))) {
+        console.log("\u2705 Bytez: Output is a video URL string");
+        return {
+          url: output,
+          raw: { url: output }
+        };
+      }
+      if (output.video || output.file) {
+        const videoData = output.video || output.file;
+        console.log("\u2705 Bytez: Found video file/data");
+        return {
+          url: typeof videoData === "string" ? videoData : JSON.stringify(videoData),
+          raw: output
+        };
+      }
+    }
+    console.error("\u274C Bytez: No video URL found in response. Full output:", JSON.stringify(output, null, 2));
+    return {
+      error: "No video URL found in response. Check server logs for details.",
+      raw: output
+    };
+  } catch (err) {
+    console.error("\u274C Bytez Video Service Exception:", err);
+    console.error("\u274C Error stack:", err.stack);
+    return {
+      error: err.message || err.toString() || "Failed to generate video"
+    };
+  }
+}
+async function generateDialogueSummary(options) {
+  try {
+    if (!options.text || !options.text.trim()) {
+      return {
+        error: "Text is required for dialogue summarization"
+      };
+    }
+    console.log("\u{1F4DD} Bytez Dialogue: Generating dialogue summary...");
+    console.log("\u{1F4DD} Bytez Dialogue: Input text length:", options.text.length);
+    console.log("\u{1F4DD} Bytez Dialogue: Using API key:", dialogueApiKey.substring(0, 8) + "...");
+    const result = await dialogueSummaryModel.run(options.text);
+    console.log("\u{1F4DD} Bytez Dialogue: Raw result:", JSON.stringify(result, null, 2));
+    const { error, output } = result;
+    if (error) {
+      console.error("\u274C Bytez Dialogue Model Error:", error);
+      const errorMessage = typeof error === "string" ? error : error?.message || JSON.stringify(error) || "Failed to generate dialogue summary";
+      return {
+        error: errorMessage
+      };
+    }
+    if (!output) {
+      return {
+        error: "No output received from Bytez API"
+      };
+    }
+    let summary;
+    if (typeof output === "string") {
+      summary = output;
+    } else if (typeof output === "object" && output !== null) {
+      summary = output.summary || output.text || JSON.stringify(output);
+    } else {
+      summary = String(output);
+    }
+    console.log("\u2705 Bytez Dialogue: Dialogue summary generated successfully");
+    console.log("\u{1F4DD} Bytez Dialogue: Summary length:", summary.length);
+    return {
+      summary: summary.trim()
+    };
+  } catch (err) {
+    console.error("\u274C Bytez Dialogue Service Exception:", err);
+    console.error("\u274C Error stack:", err.stack);
+    return {
+      error: err.message || err.toString() || "Bytez dialogue service encountered an unexpected error"
+    };
+  }
+}
+async function analyzeDocumentWithBytez(options) {
+  try {
+    console.log("\u{1F4C4} Bytez Document: Starting document analysis");
+    console.log("\u{1F4C4} Bytez Document: File:", options.fileName, "Type:", options.mimeType);
+    console.log("\u{1F4C4} Bytez Document: Using API key:", documentApiKey.substring(0, 8) + "...");
+    const base64Data = options.fileBuffer.toString("base64");
+    const modelName = options.model || "svjack/dialogue-summary";
+    const documentModel = documentSdk.model(modelName);
+    let input;
+    if (options.mimeType.startsWith("text/")) {
+      input = options.fileBuffer.toString("utf-8");
+    } else if (options.mimeType === "application/pdf") {
+      input = `Document: ${options.fileName}
+Type: PDF
+Base64: ${base64Data.substring(0, 1e3)}...
+
+Extract all text and structured data from this PDF document.`;
+    } else if (options.mimeType.startsWith("image/")) {
+      input = `Document: ${options.fileName}
+Type: Image (${options.mimeType})
+Base64: ${base64Data.substring(0, 1e3)}...
+
+Extract all text and structured data from this image document using OCR.`;
+    } else {
+      try {
+        input = options.fileBuffer.toString("utf-8");
+      } catch {
+        input = `Document: ${options.fileName}
+Type: ${options.mimeType}
+Base64: ${base64Data.substring(0, 1e3)}...`;
+      }
+    }
+    console.log("\u{1F4C4} Bytez Document: Running model:", modelName);
+    const result = await documentModel.run(input);
+    console.log("\u{1F4C4} Bytez Document: Raw result:", JSON.stringify(result, null, 2));
+    const { error, output } = result;
+    if (error) {
+      console.error("\u274C Bytez Document Model Error:", error);
+      const errorMessage = typeof error === "string" ? error : error?.message || JSON.stringify(error) || "Failed to analyze document";
+      return {
+        error: errorMessage
+      };
+    }
+    if (!output) {
+      return {
+        error: "No output received from Bytez API"
+      };
+    }
+    let extractedData = null;
+    let ocrText = "";
+    if (typeof output === "string") {
+      ocrText = output;
+      extractedData = {
+        doc_type: "other",
+        raw_text_snippet: output.substring(0, 1e3)
+      };
+    } else if (typeof output === "object" && output !== null) {
+      extractedData = output;
+      ocrText = output.text || output.ocrText || output.raw_text_snippet || JSON.stringify(output);
+    } else {
+      ocrText = String(output);
+      extractedData = {
+        doc_type: "other",
+        raw_text_snippet: ocrText.substring(0, 1e3)
+      };
+    }
+    console.log("\u2705 Bytez Document: Document analysis completed");
+    console.log("\u{1F4C4} Bytez Document: OCR text length:", ocrText.length);
+    return {
+      extractedData,
+      ocrText: ocrText.trim(),
+      confidence: 0.85
+      // Default confidence for Bytez extraction
+    };
+  } catch (err) {
+    console.error("\u274C Bytez Document Service Exception:", err);
+    console.error("\u274C Error stack:", err.stack);
+    return {
+      error: err.message || err.toString() || "Bytez document service encountered an unexpected error"
+    };
+  }
+}
+var imageApiKey, imageSdk, imageModel, videoApiKey, videoSdk, videoModel, googleApiKey, genAI, dialogueApiKey, dialogueSdk, dialogueSummaryModel, documentApiKey, documentSdk;
+var init_bytezService = __esm({
+  "server/bytezService.ts"() {
+    "use strict";
+    init_dist();
+    imageApiKey = process.env.BYTEZ_API_KEY || "349c88bd7835622d5760900f6b0f8a51";
+    imageSdk = new Bytez(imageApiKey);
+    imageModel = imageSdk.model("ZB-Tech/Text-to-Image");
+    videoApiKey = process.env.BYTEZ_VIDEO_API_KEY || "72766a8ab41bb8e6ee002cc4e4dd42c6";
+    videoSdk = new Bytez(videoApiKey);
+    videoModel = videoSdk.model("ali-vilab/text-to-video-ms-1.7b");
+    googleApiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || "AIzaSyDMUiPPecWYiH0IdfT6ubMQvyXaRBe0EXM";
+    genAI = new GoogleGenerativeAI(googleApiKey);
+    dialogueApiKey = process.env.BYTEZ_DIALOGUE_API_KEY || "19ddd0a5c384c7365b8e0bd620351a1e";
+    dialogueSdk = new Bytez(dialogueApiKey);
+    dialogueSummaryModel = dialogueSdk.model("svjack/dialogue-summary");
+    documentApiKey = process.env.BYTEZ_DOCUMENT_API_KEY || "e05bb4f31ced25f7d0bd7340eb8d6688";
+    documentSdk = new Bytez(documentApiKey);
+  }
+});
+
 // server/geminiService.ts
 async function analyzeImageWithGemini(options) {
   try {
     console.log("\u{1F52E} Gemini: Starting document analysis (image/PDF)");
     console.log("\u{1F52E} Gemini: MIME type:", options.mimeType);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const model = genAI2.getGenerativeModel({ model: "gemini-1.5-pro" });
     const base64Data = options.imageBuffer.toString("base64");
     const prompt = options.prompt || `You are a precise document extractor. Analyze this document (image or PDF) and extract all structured data. The document could be an invoice, bill, resume/CV, form, letter, or other document type.
 
@@ -2013,7 +2075,7 @@ Extract all structured data from this document. Return ONLY valid JSON with the 
 async function generateTextWithGemini(prompt, modelName = "gemini-1.5-flash") {
   try {
     console.log("\u{1F52E} Gemini: Generating text with model:", modelName);
-    const model = genAI.getGenerativeModel({ model: modelName });
+    const model = genAI2.getGenerativeModel({ model: modelName });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text2 = response.text();
@@ -2029,13 +2091,13 @@ async function generateTextWithGemini(prompt, modelName = "gemini-1.5-flash") {
 function isGeminiAvailable() {
   return !!geminiApiKey && geminiApiKey !== "";
 }
-var geminiApiKey, genAI;
+var geminiApiKey, genAI2;
 var init_geminiService = __esm({
   "server/geminiService.ts"() {
     "use strict";
     init_dist();
     geminiApiKey = process.env.GEMINI_API_KEY || "AIzaSyAhyQx7oPQ9ffTeyT91IlUbut0psAxrcMQ";
-    genAI = new GoogleGenerativeAI(geminiApiKey);
+    genAI2 = new GoogleGenerativeAI(geminiApiKey);
   }
 });
 
@@ -4110,31 +4172,47 @@ Assistant:`;
     }
   });
   app2.post("/api/videos/generate", isAuthenticated, async (req, res) => {
+    const startTime = Date.now();
+    const timeoutWarning = setTimeout(() => {
+      console.warn("\u26A0\uFE0F Video generation taking longer than 30 seconds...");
+    }, 3e4);
     try {
       const { prompt, duration, projectId } = req.body;
       if (!prompt) {
+        clearTimeout(timeoutWarning);
         return res.status(400).json({ error: "Prompt is required" });
       }
       console.log("\u{1F3AC} Video Generation: Starting with prompt:", prompt);
-      const bytezResult = await generateVideoWithBytez({ prompt, duration });
-      if (bytezResult.error) {
-        console.error("\u274C Video generation failed:", bytezResult.error);
-        console.log("\u{1F4CB} Bytez raw output:", JSON.stringify(bytezResult.raw, null, 2));
+      let videoResult;
+      try {
+        videoResult = await generateVideoWithGoogle({ prompt, duration });
+        if (videoResult.error) {
+          console.log("\u26A0\uFE0F Google Veo failed, trying Bytez fallback...");
+          videoResult = await generateVideoWithBytez({ prompt, duration });
+        }
+      } catch (googleError) {
+        console.warn("\u26A0\uFE0F Google Veo error, trying Bytez fallback:", googleError.message);
+        videoResult = await generateVideoWithBytez({ prompt, duration });
+      }
+      clearTimeout(timeoutWarning);
+      if (videoResult.error) {
+        console.error("\u274C Video generation failed:", videoResult.error);
+        console.log("\u{1F4CB} Video raw output:", JSON.stringify(videoResult.raw, null, 2));
         return res.status(503).json({
           error: "Video generation failed",
-          message: bytezResult.error || "Please configure BYTEZ_API_KEY",
+          message: videoResult.error || "Please configure GOOGLE_API_KEY or BYTEZ_VIDEO_API_KEY",
           fallbackResponse: "Video generation is currently unavailable. Please check your API keys.",
-          details: bytezResult.raw ? JSON.stringify(bytezResult.raw) : void 0
+          details: videoResult.raw ? JSON.stringify(videoResult.raw) : void 0
         });
       }
-      const urls = bytezResult.urls || (bytezResult.url ? [bytezResult.url] : []);
+      const urls = videoResult.urls || (videoResult.url ? [videoResult.url] : []);
       if (urls.length === 0) {
-        console.error("\u274C Bytez returned success but no video URLs found");
+        console.error("\u274C Video generation returned success but no video URLs found");
         return res.status(503).json({
           error: "No videos returned",
           message: "Video generation completed but no video URLs were returned",
           fallbackResponse: "Video generation failed. Please try again.",
-          details: JSON.stringify(bytezResult.raw)
+          details: JSON.stringify(videoResult.raw)
         });
       }
       console.log("\u2705 Video generation succeeded, returning", urls.length, "video(s)");
@@ -4148,7 +4226,7 @@ Assistant:`;
             name: prompt.slice(0, 50),
             url,
             projectId: projectId || null,
-            metadata: { prompt, duration, provider: "bytez" }
+            metadata: { prompt, duration, provider: videoResult.raw?.operation ? "google-veo" : "bytez" }
           });
           savedVideos.push({
             id: asset.id,
@@ -4166,15 +4244,26 @@ Assistant:`;
       }
       res.json({
         videos: savedVideos,
-        provider: "bytez"
+        provider: videoResult.raw?.operation ? "google-veo" : "bytez"
       });
     } catch (error) {
+      clearTimeout(timeoutWarning);
+      const elapsed = Date.now() - startTime;
       console.error("Video generation error:", error);
-      res.status(500).json({
-        error: "Failed to generate video",
-        details: error.message,
-        fallbackResponse: "Video generation failed. Please try again or check your API configuration."
-      });
+      if (error.message?.includes("timeout") || error.code === "ETIMEDOUT" || elapsed > 55e3) {
+        res.status(504).json({
+          error: "Video generation timeout",
+          message: "Video generation is taking too long. This is a long-running process that may exceed serverless function timeouts.",
+          suggestion: "Video generation can take 1-5 minutes. Consider implementing async processing with job polling.",
+          elapsed: `${Math.round(elapsed / 1e3)}s`
+        });
+      } else {
+        res.status(500).json({
+          error: "Failed to generate video",
+          details: error.message,
+          fallbackResponse: "Video generation failed. Please try again or check your API configuration."
+        });
+      }
     }
   });
   app2.post("/api/documents/actions/autofill", isAuthenticated, async (req, res) => {
