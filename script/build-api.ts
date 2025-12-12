@@ -1,5 +1,6 @@
 import { build as esbuild } from "esbuild";
-import { readFile } from "fs/promises";
+import { readFile, unlink } from "fs/promises";
+import { existsSync } from "fs";
 
 // Build the API function for Vercel
 async function buildApi() {
@@ -39,8 +40,17 @@ async function buildApi() {
     throw err;
   });
   
-  // After building, we need to ensure only the .js file is used by Vercel
-  // The .ts file will be ignored if we configure vercel.json correctly
+  // Remove the TypeScript file after building to avoid conflicts with Vercel
+  // Vercel will only see the .js file
+  if (existsSync("api/index.ts")) {
+    try {
+      await unlink("api/index.ts");
+      console.log("✅ Removed api/index.ts to avoid Vercel conflicts");
+    } catch (err) {
+      console.warn("⚠️  Could not remove api/index.ts:", err);
+      // Not critical, continue anyway
+    }
+  }
   
   console.log("✅ API function built successfully");
 }
