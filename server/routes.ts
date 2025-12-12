@@ -722,15 +722,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // Process video generation in background
       // Use waitUntil to keep function alive for background tasks
       const backgroundTask = (async () => {
+        const taskStartTime = Date.now();
         try {
           console.log("🎬 Video Generation: Starting background processing for job", job.id);
+          console.log("🎬 Video Generation: Prompt:", prompt);
           
           // Update job status to processing
           await storage.updateJob(job.id, { status: "processing" });
           console.log("🎬 Video Generation: Processing job", job.id);
 
-          // Use Bytez for video generation
+          // Use Bytez for video generation with timeout
+          console.log("🎬 Video Generation: Calling generateVideoWithBytez...");
           const videoResult = await generateVideoWithBytez({ prompt, duration });
+          const elapsed = Date.now() - taskStartTime;
+          console.log("🎬 Video Generation: generateVideoWithBytez completed in", elapsed, "ms");
           const provider = "bytez";
 
           if (videoResult.error) {

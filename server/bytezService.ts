@@ -387,7 +387,22 @@ export async function generateVideoWithBytez(
     // Get and run the video model (lazy-loaded)
     console.log("🎬 Bytez Video: Calling model.run()...");
     const model = await getVideoModel();
-    const result = await model.run(options.prompt);
+    
+    // Add timeout wrapper for Bytez API call (max 2 minutes)
+    const timeoutMs = 120000; // 2 minutes
+    const startTime = Date.now();
+    
+    console.log("🎬 Bytez Video: Starting model.run() with timeout of", timeoutMs / 1000, "seconds");
+    
+    const result = await Promise.race([
+      model.run(options.prompt),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error(`Video generation timeout after ${timeoutMs / 1000} seconds`)), timeoutMs)
+      )
+    ]) as any;
+    
+    const elapsed = Date.now() - startTime;
+    console.log("🎬 Bytez Video: model.run() completed in", elapsed, "ms");
     console.log("🎬 Bytez: Raw video result type:", typeof result);
     console.log("🎬 Bytez: Raw video result:", JSON.stringify(result, null, 2));
 

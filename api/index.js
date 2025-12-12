@@ -1780,7 +1780,17 @@ async function generateVideoWithBytez(options) {
     console.log("\u{1F3AC} Bytez Video: Model:", "ali-vilab/text-to-video-ms-1.7b");
     console.log("\u{1F3AC} Bytez Video: Calling model.run()...");
     const model = await getVideoModel();
-    const result = await model.run(options.prompt);
+    const timeoutMs = 12e4;
+    const startTime = Date.now();
+    console.log("\u{1F3AC} Bytez Video: Starting model.run() with timeout of", timeoutMs / 1e3, "seconds");
+    const result = await Promise.race([
+      model.run(options.prompt),
+      new Promise(
+        (_, reject) => setTimeout(() => reject(new Error(`Video generation timeout after ${timeoutMs / 1e3} seconds`)), timeoutMs)
+      )
+    ]);
+    const elapsed = Date.now() - startTime;
+    console.log("\u{1F3AC} Bytez Video: model.run() completed in", elapsed, "ms");
     console.log("\u{1F3AC} Bytez: Raw video result type:", typeof result);
     console.log("\u{1F3AC} Bytez: Raw video result:", JSON.stringify(result, null, 2));
     let error = null;
@@ -4240,11 +4250,16 @@ Assistant:`;
         promise.catch((err) => console.error("Background task error:", err));
       });
       const backgroundTask = (async () => {
+        const taskStartTime = Date.now();
         try {
           console.log("\u{1F3AC} Video Generation: Starting background processing for job", job.id);
+          console.log("\u{1F3AC} Video Generation: Prompt:", prompt);
           await storage.updateJob(job.id, { status: "processing" });
           console.log("\u{1F3AC} Video Generation: Processing job", job.id);
+          console.log("\u{1F3AC} Video Generation: Calling generateVideoWithBytez...");
           const videoResult = await generateVideoWithBytez({ prompt, duration });
+          const elapsed = Date.now() - taskStartTime;
+          console.log("\u{1F3AC} Video Generation: generateVideoWithBytez completed in", elapsed, "ms");
           const provider = "bytez";
           if (videoResult.error) {
             console.error("\u274C Video generation failed:", videoResult.error);
