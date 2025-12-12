@@ -680,15 +680,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ===== Video Generation =====
   app.post("/api/videos/generate", isAuthenticated, async (req, res) => {
+    // Set a timeout warning - video generation can take a long time
+    const startTime = Date.now();
+    const timeoutWarning = setTimeout(() => {
+      console.warn("⚠️ Video generation taking longer than 30 seconds...");
+    }, 30000);
+
     try {
       const { prompt, duration, projectId } = req.body;
 
       if (!prompt) {
+        clearTimeout(timeoutWarning);
         return res.status(400).json({ error: "Prompt is required" });
       }
 
       console.log("🎬 Video Generation: Starting with prompt:", prompt);
       const bytezResult = await generateVideoWithBytez({ prompt, duration });
+      clearTimeout(timeoutWarning);
 
       if (bytezResult.error) {
         console.error("❌ Video generation failed:", bytezResult.error);
@@ -752,12 +760,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         provider: "bytez",
       });
     } catch (error: any) {
+      clearTimeout(timeoutWarning);
+      const elapsed = Date.now() - startTime;
       console.error("Video generation error:", error);
-      res.status(500).json({ 
-        error: "Failed to generate video", 
-        details: error.message,
-        fallbackResponse: "Video generation failed. Please try again or check your API configuration."
-      });
+      
+      // Check if it's a timeout error
+      if (error.message?.includes("timeout") || error.code === "ETIMEDOUT" || elapsed > 55000) {
+        res.status(504).json({ 
+          error: "Video generation timeout", 
+          message: "Video generation is taking too long. This is a long-running process that may exceed serverless function timeouts.",
+          suggestion: "Video generation can take 1-5 minutes. Consider implementing async processing with job polling.",
+          elapsed: `${Math.round(elapsed / 1000)}s`
+        });
+      } else {
+        res.status(500).json({ 
+          error: "Failed to generate video", 
+          details: error.message,
+          fallbackResponse: "Video generation failed. Please try again or check your API configuration."
+        });
+      }
     }
   });
 
