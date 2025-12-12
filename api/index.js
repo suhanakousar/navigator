@@ -86962,7 +86962,7 @@ var require_lib11 = __commonJS({
     }
     var INTERNALS$1 = Symbol("Response internals");
     var STATUS_CODES = http.STATUS_CODES;
-    var Response3 = class _Response {
+    var Response2 = class _Response {
       constructor() {
         let body = arguments.length > 0 && arguments[0] !== void 0 ? arguments[0] : null;
         let opts = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : {};
@@ -87020,8 +87020,8 @@ var require_lib11 = __commonJS({
         });
       }
     };
-    Body.mixIn(Response3.prototype);
-    Object.defineProperties(Response3.prototype, {
+    Body.mixIn(Response2.prototype);
+    Object.defineProperties(Response2.prototype, {
       url: { enumerable: true },
       status: { enumerable: true },
       ok: { enumerable: true },
@@ -87030,7 +87030,7 @@ var require_lib11 = __commonJS({
       headers: { enumerable: true },
       clone: { enumerable: true }
     });
-    Object.defineProperty(Response3.prototype, Symbol.toStringTag, {
+    Object.defineProperty(Response2.prototype, Symbol.toStringTag, {
       value: "Response",
       writable: false,
       enumerable: false,
@@ -87364,7 +87364,7 @@ var require_lib11 = __commonJS({
           };
           const codings = headers.get("Content-Encoding");
           if (!request.compress || request.method === "HEAD" || codings === null || res.statusCode === 204 || res.statusCode === 304) {
-            response = new Response3(body, response_options);
+            response = new Response2(body, response_options);
             resolve(response);
             return;
           }
@@ -87374,7 +87374,7 @@ var require_lib11 = __commonJS({
           };
           if (codings == "gzip" || codings == "x-gzip") {
             body = body.pipe(zlib.createGunzip(zlibOptions));
-            response = new Response3(body, response_options);
+            response = new Response2(body, response_options);
             resolve(response);
             return;
           }
@@ -87386,12 +87386,12 @@ var require_lib11 = __commonJS({
               } else {
                 body = body.pipe(zlib.createInflateRaw());
               }
-              response = new Response3(body, response_options);
+              response = new Response2(body, response_options);
               resolve(response);
             });
             raw.on("end", function() {
               if (!response) {
-                response = new Response3(body, response_options);
+                response = new Response2(body, response_options);
                 resolve(response);
               }
             });
@@ -87399,11 +87399,11 @@ var require_lib11 = __commonJS({
           }
           if (codings == "br" && typeof zlib.createBrotliDecompress === "function") {
             body = body.pipe(zlib.createBrotliDecompress());
-            response = new Response3(body, response_options);
+            response = new Response2(body, response_options);
             resolve(response);
             return;
           }
-          response = new Response3(body, response_options);
+          response = new Response2(body, response_options);
           resolve(response);
         });
         writeToStream(req, request);
@@ -87445,7 +87445,7 @@ var require_lib11 = __commonJS({
     exports2.default = exports2;
     exports2.Headers = Headers2;
     exports2.Request = Request;
-    exports2.Response = Response3;
+    exports2.Response = Response2;
     exports2.FetchError = FetchError;
     exports2.AbortError = AbortError;
   }
@@ -90246,8 +90246,22 @@ var init_routes = __esm({
 });
 
 // api/index.source.ts
-var import_express = __toESM(require_express2(), 1);
-import { createServer } from "http";
+var app = null;
+var express = null;
+var createServer = null;
+try {
+  express = require_express2();
+  createServer = __require("http").createServer;
+  app = express.default ? express.default() : express();
+} catch (error) {
+  console.error("\u274C Failed to import express:", error);
+  app = {
+    use: () => {
+    },
+    get: (path2, handler2) => {
+    }
+  };
+}
 var registerRoutes2 = null;
 async function loadRoutes() {
   if (!registerRoutes2) {
@@ -90256,63 +90270,78 @@ async function loadRoutes() {
       registerRoutes2 = routesModule.registerRoutes;
     } catch (error) {
       console.error("\u274C Failed to import routes:", error);
+      console.error("\u274C Routes import error stack:", error?.stack);
       throw new Error(`Failed to load routes module: ${error.message}`);
     }
   }
   return registerRoutes2;
 }
-var app = (0, import_express.default)();
-app.get("/api/test", (req, res) => {
-  res.json({
-    status: "ok",
-    message: "API function is working",
-    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-    env: {
-      hasDatabaseUrl: !!process.env.DATABASE_URL,
-      hasSessionSecret: !!process.env.SESSION_SECRET,
-      nodeEnv: "production",
-      vercel: !!process.env.VERCEL
-    }
-  });
-});
-app.use(
-  import_express.default.json({
-    verify: (req, _res, buf) => {
-      req.rawBody = buf;
-    }
-  })
-);
-app.use(import_express.default.urlencoded({ extended: false }));
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path2 = req.path;
-  let capturedJsonResponse = void 0;
-  const originalResJson = res.json;
-  res.json = function(bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path2.startsWith("/api")) {
-      let logLine = `${req.method} ${path2} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+if (app && app.get) {
+  app.get("/api/test", (req, res) => {
+    try {
+      res.json({
+        status: "ok",
+        message: "API function is working",
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        env: {
+          hasDatabaseUrl: !!process.env.DATABASE_URL,
+          hasSessionSecret: !!process.env.SESSION_SECRET,
+          nodeEnv: "production",
+          vercel: !!process.env.VERCEL
+        }
+      });
+    } catch (error) {
+      console.error("Test endpoint error:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Test endpoint failed", message: error.message });
       }
-      console.log(logLine);
     }
   });
-  next();
-});
+}
+if (app && typeof app.use === "function") {
+  app.use(
+    express.json({
+      verify: (req, _res, buf) => {
+        req.rawBody = buf;
+      }
+    })
+  );
+  app.use(express.urlencoded({ extended: false }));
+}
+if (app && typeof app.use === "function") {
+  app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+}
+if (app && typeof app.use === "function") {
+  app.use((req, res, next) => {
+    const start = Date.now();
+    const path2 = req.path;
+    let capturedJsonResponse = void 0;
+    const originalResJson = res.json;
+    res.json = function(bodyJson, ...args) {
+      capturedJsonResponse = bodyJson;
+      return originalResJson.apply(res, [bodyJson, ...args]);
+    };
+    res.on("finish", () => {
+      const duration = Date.now() - start;
+      if (path2.startsWith("/api")) {
+        let logLine = `${req.method} ${path2} ${res.statusCode} in ${duration}ms`;
+        if (capturedJsonResponse) {
+          logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        }
+        console.log(logLine);
+      }
+    });
+    next();
+  });
+}
 var initialized = false;
 var initPromise = null;
 async function initialize() {
@@ -90355,7 +90384,18 @@ async function initialize() {
   return initPromise;
 }
 async function handler(req, res) {
+  console.log("\u{1F4E5} Handler called:", req.method, req.url);
   try {
+    if (!app) {
+      console.error("\u274C Express app not initialized");
+      if (!res.headersSent) {
+        return res.status(500).json({
+          error: "Server Initialization Error",
+          message: "Failed to initialize Express application"
+        });
+      }
+      return;
+    }
     if (!process.env.DATABASE_URL) {
       console.error("\u274C DATABASE_URL is not set");
       if (!res.headersSent) {

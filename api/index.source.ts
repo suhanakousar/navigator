@@ -1,8 +1,23 @@
 // Vercel serverless function handler
 // This file is used by Vercel to handle all API routes
 
-import express, { type Request, Response, NextFunction } from "express";
-import { createServer } from "http";
+// Wrap everything in try-catch to catch any import-time errors
+let app: any = null;
+let express: any = null;
+let createServer: any = null;
+
+try {
+  express = require("express");
+  createServer = require("http").createServer;
+  app = express.default ? express.default() : express();
+} catch (error: any) {
+  console.error("❌ Failed to import express:", error);
+  // Create a minimal error handler
+  app = {
+    use: () => {},
+    get: (path: string, handler: any) => {},
+  };
+}
 
 // Lazy import to catch any import-time errors
 let registerRoutes: any = null;
@@ -13,75 +28,89 @@ async function loadRoutes() {
       registerRoutes = routesModule.registerRoutes;
     } catch (error: any) {
       console.error("❌ Failed to import routes:", error);
+      console.error("❌ Routes import error stack:", error?.stack);
       throw new Error(`Failed to load routes module: ${error.message}`);
     }
   }
   return registerRoutes;
 }
 
-const app = express();
-
-// Simple test endpoint that doesn't require database
-app.get("/api/test", (req, res) => {
-  res.json({ 
-    status: "ok", 
-    message: "API function is working",
-    timestamp: new Date().toISOString(),
-    env: {
-      hasDatabaseUrl: !!process.env.DATABASE_URL,
-      hasSessionSecret: !!process.env.SESSION_SECRET,
-      nodeEnv: process.env.NODE_ENV,
-      vercel: !!process.env.VERCEL,
+// Simple test endpoint that doesn't require database - register early
+if (app && app.get) {
+  app.get("/api/test", (req: any, res: any) => {
+    try {
+      res.json({ 
+        status: "ok", 
+        message: "API function is working",
+        timestamp: new Date().toISOString(),
+        env: {
+          hasDatabaseUrl: !!process.env.DATABASE_URL,
+          hasSessionSecret: !!process.env.SESSION_SECRET,
+          nodeEnv: process.env.NODE_ENV,
+          vercel: !!process.env.VERCEL,
+        }
+      });
+    } catch (error: any) {
+      console.error("Test endpoint error:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Test endpoint failed", message: error.message });
+      }
     }
   });
-});
+}
 
-// Middleware
-app.use(
-  express.json({
-    verify: (req, _res, buf) => {
-      (req as any).rawBody = buf;
-    },
-  }),
-);
-app.use(express.urlencoded({ extended: false }));
+// Middleware - only if app is properly initialized
+if (app && typeof app.use === 'function') {
+  app.use(
+    express.json({
+      verify: (req: any, _res: any, buf: any) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
+  app.use(express.urlencoded({ extended: false }));
+}
 
 // CORS middleware for Vercel
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
+if (app && typeof app.use === 'function') {
+  app.use((req: any, res: any, next: any) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+}
 
 // Logging middleware
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+if (app && typeof app.use === 'function') {
+  app.use((req: any, res: any, next: any) => {
+    const start = Date.now();
+    const path = req.path;
+    let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
+    const originalResJson = res.json;
+    res.json = function (bodyJson: any, ...args: any[]) {
+      capturedJsonResponse = bodyJson;
+      return originalResJson.apply(res, [bodyJson, ...args]);
+    };
 
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+    res.on("finish", () => {
+      const duration = Date.now() - start;
+      if (path.startsWith("/api")) {
+        let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+        if (capturedJsonResponse) {
+          logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        }
+        console.log(logLine);
       }
-      console.log(logLine);
-    }
-  });
+    });
 
-  next();
-});
+    next();
+  });
+}
 
 // Initialize routes - do this once
 let initialized = false;
@@ -139,9 +168,23 @@ async function initialize() {
 
 // Export handler for Vercel
 // Vercel expects a default export that handles the request
-export default async function handler(req: Request, res: Response) {
+export default async function handler(req: any, res: any) {
+  // Log that handler was called
+  console.log("📥 Handler called:", req.method, req.url);
+  
   // Wrap everything in try-catch to prevent unhandled errors
   try {
+    // If app failed to initialize, return error immediately
+    if (!app) {
+      console.error("❌ Express app not initialized");
+      if (!res.headersSent) {
+        return res.status(500).json({
+          error: "Server Initialization Error",
+          message: "Failed to initialize Express application"
+        });
+      }
+      return;
+    }
     // Check for required environment variables first
     if (!process.env.DATABASE_URL) {
       console.error("❌ DATABASE_URL is not set");
