@@ -1621,9 +1621,9 @@ async function getBytezInstance() {
 async function getVideoModel() {
   if (!videoModel) {
     const BytezClass = await getBytezInstance();
-    const videoApiKey2 = process.env.BYTEZ_VIDEO_API_KEY || "72766a8ab41bb8e6ee002cc4e4dd42c6";
+    const videoApiKey = process.env.BYTEZ_VIDEO_API_KEY || "72766a8ab41bb8e6ee002cc4e4dd42c6";
     if (!videoSdk) {
-      videoSdk = new BytezClass(videoApiKey2);
+      videoSdk = new BytezClass(videoApiKey);
     }
     videoModel = videoSdk.model("ali-vilab/text-to-video-ms-1.7b");
   }
@@ -1759,6 +1759,7 @@ async function generateImageWithBytez(options) {
 async function generateVideoWithBytez(options) {
   try {
     console.log("\u{1F3AC} Bytez Video: Starting video generation with prompt:", options.prompt);
+    const videoApiKey = process.env.BYTEZ_VIDEO_API_KEY || "72766a8ab41bb8e6ee002cc4e4dd42c6";
     console.log("\u{1F3AC} Bytez Video: Using API key:", videoApiKey.substring(0, 8) + "...");
     console.log("\u{1F3AC} Bytez Video: Model:", "ali-vilab/text-to-video-ms-1.7b");
     console.log("\u{1F3AC} Bytez Video: Calling model.run()...");
