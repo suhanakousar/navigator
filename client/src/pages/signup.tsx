@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { GlassCard } from "@/components/ui/glass-card";
 import { signUp, signInWithGoogle, signInWithGithub } from "@/lib/firebaseAuth";
-import { Mail, Lock, User, Github, Sparkles, ArrowRight, Rocket } from "lucide-react";
+import { Mail, Lock, User, Github, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function SignUp() {
@@ -155,8 +155,12 @@ export default function SignUp() {
         <GlassCard variant="elevated" className="p-8 md:p-10 backdrop-blur-2xl border-white/20 shadow-2xl shadow-purple-500/20">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 mb-4 border border-white/20">
-              <Rocket className="w-8 h-8 text-pink-400" />
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 mb-4 border border-white/20 overflow-hidden">
+              <img 
+                src="/favicon.png" 
+                alt="LifeNavigator Logo" 
+                className="w-full h-full object-contain p-2"
+              />
             </div>
             <h1 className="text-3xl md:text-4xl font-display font-bold mb-2 bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
               Create Your Account 🚀

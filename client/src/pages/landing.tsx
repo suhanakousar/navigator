@@ -62,8 +62,12 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden">
+                <img 
+                  src="/favicon.png" 
+                  alt="LifeNavigator Logo" 
+                  className="w-full h-full object-contain"
+                />
               </div>
               <span className="font-display font-bold text-xl gradient-text">
                 LifeNavigator
@@ -183,7 +187,11 @@ export default function Landing() {
       <footer className="py-8 px-4 border-t border-white/10">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-purple-400" />
+            <img 
+              src="/favicon.png" 
+              alt="LifeNavigator Logo" 
+              className="w-5 h-5"
+            />
             <span className="text-sm text-muted-foreground">
               LifeNavigator - AI Creative Assistant
             </span>
