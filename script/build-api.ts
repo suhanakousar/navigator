@@ -13,11 +13,27 @@ async function buildApi() {
   ];
   
   // External dependencies that should not be bundled
+  // These are either native modules, have optional dependencies, or are better left external
+  const alwaysExternal = [
+    "@types/*",
+    "bufferutil",
+    "utf-8-validate",
+    "firebase-admin", // Has optional dependencies like @opentelemetry/api
+    "pg", // Native PostgreSQL driver
+    "ws", // WebSocket native module
+    "@google-cloud/*", // Google Cloud packages with optional deps
+    "@opentelemetry/*", // Optional telemetry dependencies
+  ];
+  
   const externals = allDeps.filter((dep) => {
-    // Bundle most things, but keep native modules external
-    return dep.startsWith("@types/") || 
-           dep === "bufferutil" || 
-           dep === "utf-8-validate";
+    // Check if it matches any always external pattern
+    return alwaysExternal.some(pattern => {
+      if (pattern.includes("*")) {
+        const regex = new RegExp("^" + pattern.replace(/\*/g, ".*"));
+        return regex.test(dep);
+      }
+      return dep === pattern;
+    });
   });
 
   await esbuild({
