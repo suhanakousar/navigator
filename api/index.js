@@ -1773,22 +1773,34 @@ async function generateImageWithBytez(options) {
   }
 }
 async function generateVideoWithBytez(options) {
+  const startTime = Date.now();
   try {
     console.log("\u{1F3AC} Bytez Video: Starting video generation with prompt:", options.prompt);
     const videoApiKey = process.env.BYTEZ_VIDEO_API_KEY || "72766a8ab41bb8e6ee002cc4e4dd42c6";
     console.log("\u{1F3AC} Bytez Video: Using API key:", videoApiKey.substring(0, 8) + "...");
     console.log("\u{1F3AC} Bytez Video: Model:", "ali-vilab/text-to-video-ms-1.7b");
-    console.log("\u{1F3AC} Bytez Video: Calling model.run()...");
+    console.log("\u{1F3AC} Bytez Video: Getting video model...");
     const model = await getVideoModel();
+    console.log("\u{1F3AC} Bytez Video: Model obtained, calling model.run()...");
     const timeoutMs = 12e4;
-    const startTime = Date.now();
     console.log("\u{1F3AC} Bytez Video: Starting model.run() with timeout of", timeoutMs / 1e3, "seconds");
-    const result = await Promise.race([
-      model.run(options.prompt),
-      new Promise(
-        (_, reject) => setTimeout(() => reject(new Error(`Video generation timeout after ${timeoutMs / 1e3} seconds`)), timeoutMs)
-      )
-    ]);
+    let result;
+    try {
+      result = await Promise.race([
+        model.run(options.prompt),
+        new Promise(
+          (_, reject) => setTimeout(() => reject(new Error(`Video generation timeout after ${timeoutMs / 1e3} seconds`)), timeoutMs)
+        )
+      ]);
+    } catch (timeoutError) {
+      const elapsed2 = Date.now() - startTime;
+      console.error("\u274C Bytez Video: Timeout or error during model.run():", timeoutError.message);
+      console.error("\u274C Bytez Video: Elapsed time:", elapsed2, "ms");
+      return {
+        error: timeoutError.message || "Video generation timed out or failed",
+        raw: { timeout: true, elapsed: elapsed2 }
+      };
+    }
     const elapsed = Date.now() - startTime;
     console.log("\u{1F3AC} Bytez Video: model.run() completed in", elapsed, "ms");
     console.log("\u{1F3AC} Bytez: Raw video result type:", typeof result);

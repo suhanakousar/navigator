@@ -378,6 +378,7 @@ export async function generateVideoWithGoogle(
 export async function generateVideoWithBytez(
   options: GenerateVideoOptions
 ): Promise<GenerateVideoResult> {
+  const startTime = Date.now();
   try {
     console.log("🎬 Bytez Video: Starting video generation with prompt:", options.prompt);
     const videoApiKey = process.env.BYTEZ_VIDEO_API_KEY || "72766a8ab41bb8e6ee002cc4e4dd42c6";
@@ -385,21 +386,32 @@ export async function generateVideoWithBytez(
     console.log("🎬 Bytez Video: Model:", "ali-vilab/text-to-video-ms-1.7b");
     
     // Get and run the video model (lazy-loaded)
-    console.log("🎬 Bytez Video: Calling model.run()...");
+    console.log("🎬 Bytez Video: Getting video model...");
     const model = await getVideoModel();
+    console.log("🎬 Bytez Video: Model obtained, calling model.run()...");
     
     // Add timeout wrapper for Bytez API call (max 2 minutes)
     const timeoutMs = 120000; // 2 minutes
-    const startTime = Date.now();
     
     console.log("🎬 Bytez Video: Starting model.run() with timeout of", timeoutMs / 1000, "seconds");
     
-    const result = await Promise.race([
-      model.run(options.prompt),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error(`Video generation timeout after ${timeoutMs / 1000} seconds`)), timeoutMs)
-      )
-    ]) as any;
+    let result: any;
+    try {
+      result = await Promise.race([
+        model.run(options.prompt),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error(`Video generation timeout after ${timeoutMs / 1000} seconds`)), timeoutMs)
+        )
+      ]);
+    } catch (timeoutError: any) {
+      const elapsed = Date.now() - startTime;
+      console.error("❌ Bytez Video: Timeout or error during model.run():", timeoutError.message);
+      console.error("❌ Bytez Video: Elapsed time:", elapsed, "ms");
+      return {
+        error: timeoutError.message || "Video generation timed out or failed",
+        raw: { timeout: true, elapsed },
+      };
+    }
     
     const elapsed = Date.now() - startTime;
     console.log("🎬 Bytez Video: model.run() completed in", elapsed, "ms");
