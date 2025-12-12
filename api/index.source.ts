@@ -104,8 +104,37 @@ async function initialize() {
 export default async function handler(req: Request, res: Response) {
   try {
     await initialize();
+    
     // Process the request through Express
-    app(req, res);
+    // Wrap in a promise to ensure we wait for the response
+    return new Promise<void>((resolve) => {
+      // Track when response is finished
+      const cleanup = () => {
+        res.removeListener('finish', onFinish);
+        res.removeListener('close', onClose);
+        resolve();
+      };
+      
+      const onFinish = () => cleanup();
+      const onClose = () => cleanup();
+      
+      res.once('finish', onFinish);
+      res.once('close', onClose);
+      
+      // Call Express app with error handler
+      app(req, res, (err: any) => {
+        if (err) {
+          console.error("Express middleware error:", err);
+          if (!res.headersSent) {
+            res.status(500).json({ 
+              error: "Internal Server Error", 
+              message: err?.message || "Failed to process request"
+            });
+          }
+          cleanup();
+        }
+      });
+    });
   } catch (error: any) {
     console.error("Handler error:", error);
     console.error("Handler error stack:", error?.stack);
@@ -116,6 +145,7 @@ export default async function handler(req: Request, res: Response) {
         ...(process.env.NODE_ENV === "development" && { stack: error?.stack })
       });
     }
+    throw error;
   }
 }
 

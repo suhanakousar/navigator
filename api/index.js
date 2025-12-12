@@ -87910,7 +87910,29 @@ async function initialize() {
 async function handler(req, res) {
   try {
     await initialize();
-    app(req, res);
+    return new Promise((resolve) => {
+      const cleanup = () => {
+        res.removeListener("finish", onFinish);
+        res.removeListener("close", onClose);
+        resolve();
+      };
+      const onFinish = () => cleanup();
+      const onClose = () => cleanup();
+      res.once("finish", onFinish);
+      res.once("close", onClose);
+      app(req, res, (err) => {
+        if (err) {
+          console.error("Express middleware error:", err);
+          if (!res.headersSent) {
+            res.status(500).json({
+              error: "Internal Server Error",
+              message: err?.message || "Failed to process request"
+            });
+          }
+          cleanup();
+        }
+      });
+    });
   } catch (error) {
     console.error("Handler error:", error);
     console.error("Handler error stack:", error?.stack);
@@ -87921,6 +87943,7 @@ async function handler(req, res) {
         ...false
       });
     }
+    throw error;
   }
 }
 export {
