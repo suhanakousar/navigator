@@ -29,6 +29,8 @@ async function buildApi() {
     "openai", // OpenAI SDK - may use require()
     "drizzle-orm", // ORM - may use require()
     "drizzle-kit", // Drizzle CLI tools
+    "bytez.js", // Externalize to ensure dependencies like undici are available
+    "undici", // Required by bytez.js - must be available at runtime
     "http", // Node.js built-in
     "https", // Node.js built-in
     "path", // Node.js built-in
