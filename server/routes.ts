@@ -994,6 +994,141 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Process a specific job (can be called manually or by cron)
+  app.post("/api/jobs/:id/process", isAuthenticated, async (req, res) => {
+    try {
+      const job = await storage.getJob(req.params.id);
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+      if (job.userId !== getUserId(req)) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+
+      // Only process pending or processing jobs
+      if (job.status !== "pending" && job.status !== "processing") {
+        return res.json({
+          message: "Job already completed or failed",
+          job,
+        });
+      }
+
+      // If it's a video generation job, process it
+      if (job.type === "video_generation" || job.type === "video-generation") {
+        const { prompt, duration, projectId } = job.input as any;
+        const userId = job.userId;
+
+        console.log("🎬 Processing video generation job:", job.id);
+
+        // Update status to processing
+        await storage.updateJob(job.id, { status: "processing" });
+
+        // Try Google Veo first, fallback to Bytez
+        let videoResult;
+        let provider = "unknown";
+        
+        try {
+          videoResult = await generateVideoWithGoogle({ prompt, duration });
+          provider = "google-veo";
+          if (videoResult.error) {
+            console.log("⚠️ Google Veo failed, trying Bytez fallback...");
+            videoResult = await generateVideoWithBytez({ prompt, duration });
+            provider = "bytez";
+          }
+        } catch (googleError: any) {
+          console.warn("⚠️ Google Veo error, trying Bytez fallback:", googleError.message);
+          videoResult = await generateVideoWithBytez({ prompt, duration });
+          provider = "bytez";
+        }
+
+        if (videoResult.error) {
+          console.error("❌ Video generation failed:", videoResult.error);
+          await storage.updateJob(job.id, {
+            status: "failed",
+            errorMessage: videoResult.error,
+            completedAt: new Date(),
+          });
+          return res.json({
+            message: "Video generation failed",
+            job: await storage.getJob(job.id),
+          });
+        }
+
+        // Get video URLs
+        const urls = videoResult.urls || (videoResult.url ? [videoResult.url] : []);
+        
+        if (urls.length === 0) {
+          console.error("❌ Video generation returned success but no video URLs found");
+          await storage.updateJob(job.id, {
+            status: "failed",
+            errorMessage: "No video URLs returned",
+            completedAt: new Date(),
+          });
+          return res.json({
+            message: "No video URLs returned",
+            job: await storage.getJob(job.id),
+          });
+        }
+
+        console.log("✅ Video generation succeeded, saving", urls.length, "video(s)");
+
+        // Save generated videos as assets
+        const savedVideos = [];
+        
+        for (const url of urls) {
+          try {
+            const asset = await storage.createAsset({
+              userId,
+              type: "video",
+              name: prompt.slice(0, 50),
+              url: url,
+              projectId: projectId || null,
+              metadata: { prompt, duration, provider },
+            });
+            savedVideos.push({
+              id: asset.id,
+              url: asset.url,
+              prompt: prompt,
+            });
+          } catch (assetError) {
+            console.error("Failed to save video asset:", assetError);
+            savedVideos.push({
+              id: `temp-${Date.now()}`,
+              url: url,
+              prompt: prompt,
+            });
+          }
+        }
+
+        // Update job with results
+        await storage.updateJob(job.id, {
+          status: "completed",
+          result: {
+            videos: savedVideos,
+            provider,
+          },
+          resultUrl: savedVideos[0]?.url,
+          completedAt: new Date(),
+        });
+
+        console.log("✅ Video generation job completed:", job.id);
+
+        return res.json({
+          message: "Job processed successfully",
+          job: await storage.getJob(job.id),
+        });
+      }
+
+      return res.status(400).json({ error: "Unknown job type" });
+    } catch (error: any) {
+      console.error("❌ Job processing error:", error);
+      res.status(500).json({
+        error: "Failed to process job",
+        details: error.message,
+      });
+    }
+  });
+
   app.get("/api/jobs/:id", isAuthenticated, async (req, res) => {
     try {
       const job = await storage.getJob(req.params.id);

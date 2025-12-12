@@ -103,8 +103,29 @@ export default function VideoStudio() {
   useEffect(() => {
     if (!generatingJobId) return;
 
+    let pollCount = 0;
+    const maxPolls = 100; // Poll for up to 5 minutes (100 * 3 seconds)
+    let stuckJobRetryCount = 0;
+
     const pollInterval = setInterval(async () => {
       try {
+        pollCount++;
+        
+        // If job has been processing for too long (60 seconds), try to manually process it
+        if (pollCount > 20 && stuckJobRetryCount === 0 && generatingJobId) {
+          stuckJobRetryCount++;
+          console.log("⚠️ Job stuck in processing, attempting to manually process...");
+          try {
+            const processResponse = await apiRequest("POST", `/api/jobs/${generatingJobId}/process`);
+            if (processResponse.ok) {
+              const processResult = await processResponse.json();
+              console.log("✅ Manual processing triggered:", processResult);
+            }
+          } catch (processError) {
+            console.warn("Failed to manually process job:", processError);
+          }
+        }
+
         const job = await pollJobStatus.mutateAsync(generatingJobId);
         
         if (job.status === "completed") {
@@ -134,9 +155,22 @@ export default function VideoStudio() {
           setGenerationProgress("");
           throw new Error(job.errorMessage || "Video generation failed");
         } else if (job.status === "processing") {
-          setGenerationProgress("Generating video... This may take 1-5 minutes.");
+          const elapsedMinutes = Math.floor((pollCount * 3) / 60);
+          setGenerationProgress(`Generating video... This may take 1-5 minutes. (${elapsedMinutes}m elapsed)`);
         } else {
           setGenerationProgress("Video generation queued...");
+        }
+
+        // Stop polling after max attempts
+        if (pollCount >= maxPolls) {
+          clearInterval(pollInterval);
+          setGeneratingJobId(null);
+          setGenerationProgress("");
+          toast({
+            title: "Generation timeout",
+            description: "Video generation is taking longer than expected. The job will continue processing in the background. Check back later or try processing it manually.",
+            variant: "destructive",
+          });
         }
       } catch (error: any) {
         clearInterval(pollInterval);
