@@ -220,23 +220,32 @@ export async function generateVideoWithGoogle(
 
     console.log("🎬 Google Veo: Operation started:", operation.name);
 
-    // Poll until ready (max 5 minutes = 300 seconds)
-    const maxWaitTime = 300000; // 5 minutes
+    // Poll until ready (max 2 minutes for serverless compatibility)
+    // Note: Vercel functions have 60s timeout, but background tasks can run longer
+    const maxWaitTime = 120000; // 2 minutes (reduced from 5)
     const startTime = Date.now();
-    const pollInterval = 8000; // 8 seconds
+    const pollInterval = 5000; // 5 seconds (reduced from 8)
 
     while (!operation.done) {
       const elapsed = Date.now() - startTime;
       if (elapsed > maxWaitTime) {
+        console.warn("⚠️ Google Veo: Timeout after", Math.round(elapsed / 1000), "seconds");
         return {
-          error: "Video generation timeout - operation took longer than 5 minutes",
+          error: "Video generation timeout - operation took longer than 2 minutes. Please try again or use a shorter prompt.",
         };
       }
 
       console.log("🎬 Google Veo: Generating video... (elapsed: " + Math.round(elapsed / 1000) + "s)");
       await new Promise((res) => setTimeout(res, pollInterval));
       
-      operation = await genAIAny.operations.get({ name: operation.name });
+      try {
+        operation = await genAIAny.operations.get({ name: operation.name });
+      } catch (pollError: any) {
+        console.error("❌ Google Veo: Error polling operation:", pollError.message);
+        return {
+          error: `Failed to poll video generation status: ${pollError.message}`,
+        };
+      }
     }
 
     console.log("✅ Google Veo: Video generation completed");

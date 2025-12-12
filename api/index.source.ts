@@ -156,6 +156,12 @@ async function initialize() {
 // Export handler for Vercel
 // Vercel expects a default export that handles the request
 export default async function handler(req: any, res: any) {
+  // Get waitUntil from Vercel's request context if available
+  // This keeps the function alive for background tasks
+  const waitUntil = (req as any).waitUntil || ((promise: Promise<any>) => {
+    // Fallback: just log and let it run
+    promise.catch((err) => console.error("Background task error:", err));
+  });
   // Log that handler was called
   console.log("📥 Handler called:", req.method, req.url);
   
@@ -186,6 +192,16 @@ export default async function handler(req: any, res: any) {
     }
 
     await initialize();
+    
+    // Get waitUntil from Vercel's request context if available
+    // This keeps the function alive for background tasks
+    const waitUntil = (req as any).waitUntil || ((promise: Promise<any>) => {
+      // Fallback: just log and let it run
+      promise.catch((err) => console.error("Background task error:", err));
+    });
+    
+    // Store waitUntil in request for routes to use
+    (req as any).waitUntil = waitUntil;
     
     // Process the request through Express
     // Wrap in a promise to ensure we wait for the response

@@ -708,9 +708,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         pollUrl: `/api/jobs/${job.id}`,
       });
 
-      // Process video generation in background (don't await - let it run)
-      (async () => {
+      // Ensure response is flushed before starting background work
+      if (res.flushHeaders) {
+        res.flushHeaders();
+      }
+
+      // Get waitUntil from request if available (Vercel background functions)
+      const waitUntil = (req as any).waitUntil || ((promise: Promise<any>) => {
+        // Fallback: just log and let it run
+        promise.catch((err) => console.error("Background task error:", err));
+      });
+
+      // Process video generation in background
+      // Use waitUntil to keep function alive for background tasks
+      const backgroundTask = (async () => {
         try {
+          console.log("🎬 Video Generation: Starting background processing for job", job.id);
+          
           // Update job status to processing
           await storage.updateJob(job.id, { status: "processing" });
           console.log("🎬 Video Generation: Processing job", job.id);
@@ -801,6 +815,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           console.log("✅ Video generation job completed:", job.id);
         } catch (error: any) {
           console.error("❌ Video generation job error:", error);
+          console.error("❌ Error stack:", error?.stack);
           await storage.updateJob(job.id, {
             status: "failed",
             errorMessage: error.message || "Video generation failed",
@@ -808,6 +823,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           });
         }
       })(); // Don't await - let it run in background
+
+      // Use waitUntil to keep function alive for background task
+      waitUntil(backgroundTask);
 
     } catch (error: any) {
       console.error("Video generation request error:", error);

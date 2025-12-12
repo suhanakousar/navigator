@@ -1713,19 +1713,27 @@ async function generateVideoWithGoogle(options) {
       prompt: options.prompt
     });
     console.log("\u{1F3AC} Google Veo: Operation started:", operation.name);
-    const maxWaitTime = 3e5;
+    const maxWaitTime = 12e4;
     const startTime = Date.now();
-    const pollInterval = 8e3;
+    const pollInterval = 5e3;
     while (!operation.done) {
       const elapsed = Date.now() - startTime;
       if (elapsed > maxWaitTime) {
+        console.warn("\u26A0\uFE0F Google Veo: Timeout after", Math.round(elapsed / 1e3), "seconds");
         return {
-          error: "Video generation timeout - operation took longer than 5 minutes"
+          error: "Video generation timeout - operation took longer than 2 minutes. Please try again or use a shorter prompt."
         };
       }
       console.log("\u{1F3AC} Google Veo: Generating video... (elapsed: " + Math.round(elapsed / 1e3) + "s)");
       await new Promise((res) => setTimeout(res, pollInterval));
-      operation = await genAIAny.operations.get({ name: operation.name });
+      try {
+        operation = await genAIAny.operations.get({ name: operation.name });
+      } catch (pollError) {
+        console.error("\u274C Google Veo: Error polling operation:", pollError.message);
+        return {
+          error: `Failed to poll video generation status: ${pollError.message}`
+        };
+      }
     }
     console.log("\u2705 Google Veo: Video generation completed");
     const videoFile = operation.result?.video;
@@ -4193,8 +4201,15 @@ Assistant:`;
         message: "Video generation started. Poll /api/jobs/:id for status.",
         pollUrl: `/api/jobs/${job.id}`
       });
-      (async () => {
+      if (res.flushHeaders) {
+        res.flushHeaders();
+      }
+      const waitUntil = req.waitUntil || ((promise) => {
+        promise.catch((err) => console.error("Background task error:", err));
+      });
+      const backgroundTask = (async () => {
         try {
+          console.log("\u{1F3AC} Video Generation: Starting background processing for job", job.id);
           await storage.updateJob(job.id, { status: "processing" });
           console.log("\u{1F3AC} Video Generation: Processing job", job.id);
           let videoResult;
@@ -4269,6 +4284,7 @@ Assistant:`;
           console.log("\u2705 Video generation job completed:", job.id);
         } catch (error) {
           console.error("\u274C Video generation job error:", error);
+          console.error("\u274C Error stack:", error?.stack);
           await storage.updateJob(job.id, {
             status: "failed",
             errorMessage: error.message || "Video generation failed",
@@ -4276,6 +4292,7 @@ Assistant:`;
           });
         }
       })();
+      waitUntil(backgroundTask);
     } catch (error) {
       console.error("Video generation request error:", error);
       res.status(500).json({
@@ -5071,6 +5088,9 @@ async function initialize() {
   return initPromise;
 }
 async function handler(req, res) {
+  const waitUntil = req.waitUntil || ((promise) => {
+    promise.catch((err) => console.error("Background task error:", err));
+  });
   console.log("\u{1F4E5} Handler called:", req.method, req.url);
   try {
     if (!app) {
@@ -5095,6 +5115,10 @@ async function handler(req, res) {
       return;
     }
     await initialize();
+    const waitUntil2 = req.waitUntil || ((promise) => {
+      promise.catch((err) => console.error("Background task error:", err));
+    });
+    req.waitUntil = waitUntil2;
     return new Promise((resolve, reject) => {
       const cleanup = () => {
         res.removeListener("finish", onFinish);
