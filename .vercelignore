@@ -7,5 +7,4 @@ dist
 .idea
 *.log
 .DS_Store
-api/index.ts
 

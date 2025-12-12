@@ -34,7 +34,13 @@ async function buildApi() {
     banner: {
       js: "// @ts-nocheck\n",
     },
+  }).catch((err) => {
+    console.error("esbuild error:", err);
+    throw err;
   });
+  
+  // After building, we need to ensure only the .js file is used by Vercel
+  // The .ts file will be ignored if we configure vercel.json correctly
   
   console.log("✅ API function built successfully");
 }
