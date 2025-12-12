@@ -87926,8 +87926,12 @@ async function initialize() {
       console.log("\u{1F4CB} Environment check:", {
         NODE_ENV: "production",
         hasDatabaseUrl: !!process.env.DATABASE_URL,
-        hasSessionSecret: !!process.env.SESSION_SECRET
+        hasSessionSecret: !!process.env.SESSION_SECRET,
+        vercelEnv: process.env.VERCEL ? "yes" : "no"
       });
+      if (!process.env.DATABASE_URL) {
+        throw new Error("DATABASE_URL environment variable is required but not set");
+      }
       const httpServer = createServer(app);
       await registerRoutes(httpServer, app);
       app.use((err, _req, res, _next) => {
@@ -87952,9 +87956,20 @@ async function initialize() {
   return initPromise;
 }
 async function handler(req, res) {
+  if (!process.env.DATABASE_URL) {
+    console.error("\u274C DATABASE_URL is not set");
+    if (!res.headersSent) {
+      return res.status(500).json({
+        error: "Server Configuration Error",
+        message: "DATABASE_URL environment variable is not set. Please configure it in Vercel project settings.",
+        hint: "Go to Vercel Dashboard \u2192 Settings \u2192 Environment Variables \u2192 Add DATABASE_URL"
+      });
+    }
+    return;
+  }
   try {
     await initialize();
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject2) => {
       const cleanup = () => {
         res.removeListener("finish", onFinish);
         res.removeListener("close", onClose);
@@ -87964,7 +87979,17 @@ async function handler(req, res) {
       const onClose = () => cleanup();
       res.once("finish", onFinish);
       res.once("close", onClose);
+      const timeout = setTimeout(() => {
+        if (!res.headersSent) {
+          res.status(504).json({
+            error: "Request Timeout",
+            message: "The request took too long to process"
+          });
+        }
+        cleanup();
+      }, 25e3);
       app(req, res, (err) => {
+        clearTimeout(timeout);
         if (err) {
           console.error("Express middleware error:", err);
           if (!res.headersSent) {
@@ -87980,14 +88005,29 @@ async function handler(req, res) {
   } catch (error) {
     console.error("Handler error:", error);
     console.error("Handler error stack:", error?.stack);
+    console.error("Error name:", error?.name);
+    console.error("Error message:", error?.message);
     if (!res.headersSent) {
-      res.status(500).json({
-        error: "Internal Server Error",
-        message: error?.message || "Failed to process request",
-        ...false
-      });
+      if (error?.message?.includes("DATABASE_URL")) {
+        res.status(500).json({
+          error: "Database Configuration Error",
+          message: "Database connection is not configured. Please set DATABASE_URL in Vercel environment variables.",
+          hint: "Use a serverless-compatible database like Neon.tech (https://neon.tech)"
+        });
+      } else if (error?.message?.includes("SESSION_SECRET")) {
+        res.status(500).json({
+          error: "Session Configuration Error",
+          message: "SESSION_SECRET environment variable is not set. Please configure it in Vercel project settings."
+        });
+      } else {
+        res.status(500).json({
+          error: "Internal Server Error",
+          message: error?.message || "Failed to process request",
+          ...false
+        });
+      }
     }
-    throw error;
+    return;
   }
 }
 export {
