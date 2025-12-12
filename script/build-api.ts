@@ -14,6 +14,7 @@ async function buildApi() {
   
   // External dependencies that should not be bundled
   // These are either native modules, have optional dependencies, or are better left external
+  // Express and common Node.js modules should be external to avoid ESM/require() conflicts
   const alwaysExternal = [
     "@types/*",
     "bufferutil",
@@ -23,6 +24,15 @@ async function buildApi() {
     "ws", // WebSocket native module
     "@google-cloud/*", // Google Cloud packages with optional deps
     "@opentelemetry/*", // Optional telemetry dependencies
+    "express", // Externalize to avoid require() issues in ESM
+    "http", // Node.js built-in
+    "https", // Node.js built-in
+    "path", // Node.js built-in
+    "fs", // Node.js built-in
+    "url", // Node.js built-in
+    "util", // Node.js built-in
+    "stream", // Node.js built-in
+    "crypto", // Node.js built-in
   ];
   
   const externals = allDeps.filter((dep) => {

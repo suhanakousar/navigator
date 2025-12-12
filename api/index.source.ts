@@ -1,23 +1,10 @@
 // Vercel serverless function handler
 // This file is used by Vercel to handle all API routes
 
-// Wrap everything in try-catch to catch any import-time errors
-let app: any = null;
-let express: any = null;
-let createServer: any = null;
+import express from "express";
+import { createServer } from "http";
 
-try {
-  express = require("express");
-  createServer = require("http").createServer;
-  app = express.default ? express.default() : express();
-} catch (error: any) {
-  console.error("❌ Failed to import express:", error);
-  // Create a minimal error handler
-  app = {
-    use: () => {},
-    get: (path: string, handler: any) => {},
-  };
-}
+const app = express();
 
 // Lazy import to catch any import-time errors
 let registerRoutes: any = null;
