@@ -3,7 +3,6 @@
 
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "../server/routes";
-import { serveStatic } from "../server/static";
 import { createServer } from "http";
 
 const app = express();
@@ -17,6 +16,17 @@ app.use(
   }),
 );
 app.use(express.urlencoded({ extended: false }));
+
+// CORS middleware for Vercel
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 // Logging middleware
 app.use((req, res, next) => {
@@ -44,7 +54,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Initialize routes
+// Initialize routes - do this once
 let initialized = false;
 let initPromise: Promise<void> | null = null;
 
@@ -53,30 +63,59 @@ async function initialize() {
   if (initPromise) return initPromise;
   
   initPromise = (async () => {
-    const httpServer = createServer(app);
-    await registerRoutes(httpServer, app);
+    try {
+      console.log("🔄 Initializing routes...");
+      console.log("📋 Environment check:", {
+        NODE_ENV: process.env.NODE_ENV,
+        hasDatabaseUrl: !!process.env.DATABASE_URL,
+        hasSessionSecret: !!process.env.SESSION_SECRET,
+      });
+      
+      const httpServer = createServer(app);
+      await registerRoutes(httpServer, app);
 
-    // Error handler
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-      res.status(status).json({ message });
-    });
+      // Error handler
+      app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+        console.error("Express error:", err);
+        if (!res.headersSent) {
+          const status = err.status || err.statusCode || 500;
+          const message = err.message || "Internal Server Error";
+          res.status(status).json({ 
+            message,
+            ...(process.env.NODE_ENV === "development" && { error: err.stack })
+          });
+        }
+      });
 
-    // Serve static files in production
-    if (process.env.NODE_ENV === "production") {
-      serveStatic(app);
+      initialized = true;
+      console.log("✅ Routes initialized successfully");
+    } catch (error: any) {
+      console.error("❌ Failed to initialize routes:", error);
+      console.error("❌ Error stack:", error?.stack);
+      throw error;
     }
-
-    initialized = true;
   })();
   
   return initPromise;
 }
 
 // Export handler for Vercel
+// Vercel expects a default export that handles the request
 export default async function handler(req: Request, res: Response) {
-  await initialize();
-  return app(req, res);
+  try {
+    await initialize();
+    // Process the request through Express
+    app(req, res);
+  } catch (error: any) {
+    console.error("Handler error:", error);
+    console.error("Handler error stack:", error?.stack);
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        error: "Internal Server Error", 
+        message: error?.message || "Failed to process request",
+        ...(process.env.NODE_ENV === "development" && { stack: error?.stack })
+      });
+    }
+  }
 }
 
