@@ -9,6 +9,11 @@ import { analyzeDocument } from "./documentService";
 import { generateSuggestedActions } from "./reasonerService";
 import { generateSpeechWithMurf, getMurfVoices } from "./murfService";
 import { generateTextWithGemini, isGeminiAvailable } from "./geminiService";
+// Import services that were dynamically imported - now static for bundling
+import { isSambaNovaAvailable, generateChatCompletion } from "./sambanovaService";
+import { executeWorkflow, getWorkflowStats } from "./workflowService";
+import { getTemporaryFile, deleteTemporaryFile } from "./storageHelper";
+import { prepareDataForStorage } from "./utils/sanitize";
 import {
   insertProjectSchema,
   insertAssetSchema,
@@ -385,7 +390,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       let usage: any = null;
 
       // Try SambaNova first (preferred for voice assistant)
-      const { isSambaNovaAvailable, generateChatCompletion } = await import("./sambanovaService");
       if (isSambaNovaAvailable()) {
         try {
           console.log("🤖 Using SambaNova AI for chat");
@@ -1016,7 +1020,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!workflow) return res.status(404).json({ error: "Workflow not found" });
       if (workflow.userId !== getUserId(req)) return res.status(404).json({ error: "Workflow not found" });
 
-      const { executeWorkflow } = await import("./workflowService");
       const run = await executeWorkflow(workflow, getUserId(req));
       res.json(run);
     } catch (error: any) {
@@ -1046,7 +1049,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!workflow) return res.status(404).json({ error: "Workflow not found" });
       if (workflow.userId !== getUserId(req)) return res.status(404).json({ error: "Workflow not found" });
 
-      const { getWorkflowStats } = await import("./workflowService");
       const stats = await getWorkflowStats(req.params.id);
       res.json(stats);
     } catch (error) {
@@ -1057,7 +1059,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ===== Temporary File Storage (for ApyHub summarization) =====
   app.get("/api/temp-files/:fileId", async (req, res) => {
     try {
-      const { getTemporaryFile, deleteTemporaryFile } = await import("./storageHelper");
       const file = getTemporaryFile(req.params.fileId);
       
       if (!file) {
@@ -1118,7 +1119,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       let assetId: string | undefined;
       try {
         // Prepare metadata with sanitized and limited data
-        const { prepareDataForStorage } = await import("./utils/sanitize");
         const sanitizedExtractedData = prepareDataForStorage(result.extractedData, 3000);
         const sanitizedOcrText = result.ocrText 
           ? prepareDataForStorage({ ocrText: result.ocrText }, 3000).ocrText 
@@ -1211,7 +1211,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         });
       }
 
-      const { generateSuggestedActions } = await import("./reasonerService");
       const suggestions = await generateSuggestedActions(extractedData);
       
       // Log the action
@@ -1276,17 +1275,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       try {
         if (actionType === "email") {
           // Email action - return draft email
-          const { generateSuggestedActions } = await import("./reasonerService");
           const suggestions = await generateSuggestedActions(extractedData);
           result = suggestions.email;
         } else if (actionType === "task") {
           // Task action - return tasks
-          const { generateSuggestedActions } = await import("./reasonerService");
           const suggestions = await generateSuggestedActions(extractedData);
           result = suggestions.tasks;
         } else if (actionType === "summary") {
           // Summary action
-          const { generateSuggestedActions } = await import("./reasonerService");
           const suggestions = await generateSuggestedActions(extractedData);
           result = suggestions.summary;
         }
