@@ -2,10 +2,39 @@
 // This file is used by Vercel to handle all API routes
 
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "../server/routes";
 import { createServer } from "http";
 
+// Lazy import to catch any import-time errors
+let registerRoutes: any = null;
+async function loadRoutes() {
+  if (!registerRoutes) {
+    try {
+      const routesModule = await import("../server/routes");
+      registerRoutes = routesModule.registerRoutes;
+    } catch (error: any) {
+      console.error("❌ Failed to import routes:", error);
+      throw new Error(`Failed to load routes module: ${error.message}`);
+    }
+  }
+  return registerRoutes;
+}
+
 const app = express();
+
+// Simple test endpoint that doesn't require database
+app.get("/api/test", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    message: "API function is working",
+    timestamp: new Date().toISOString(),
+    env: {
+      hasDatabaseUrl: !!process.env.DATABASE_URL,
+      hasSessionSecret: !!process.env.SESSION_SECRET,
+      nodeEnv: process.env.NODE_ENV,
+      vercel: !!process.env.VERCEL,
+    }
+  });
+});
 
 // Middleware
 app.use(
@@ -77,8 +106,11 @@ async function initialize() {
         throw new Error("DATABASE_URL environment variable is required but not set");
       }
       
+      // Load routes module (lazy import to catch import errors)
+      const routesFn = await loadRoutes();
+      
       const httpServer = createServer(app);
-      await registerRoutes(httpServer, app);
+      await routesFn(httpServer, app);
 
       // Error handler
       app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -108,20 +140,21 @@ async function initialize() {
 // Export handler for Vercel
 // Vercel expects a default export that handles the request
 export default async function handler(req: Request, res: Response) {
-  // Check for required environment variables first
-  if (!process.env.DATABASE_URL) {
-    console.error("❌ DATABASE_URL is not set");
-    if (!res.headersSent) {
-      return res.status(500).json({ 
-        error: "Server Configuration Error",
-        message: "DATABASE_URL environment variable is not set. Please configure it in Vercel project settings.",
-        hint: "Go to Vercel Dashboard → Settings → Environment Variables → Add DATABASE_URL"
-      });
-    }
-    return;
-  }
-
+  // Wrap everything in try-catch to prevent unhandled errors
   try {
+    // Check for required environment variables first
+    if (!process.env.DATABASE_URL) {
+      console.error("❌ DATABASE_URL is not set");
+      if (!res.headersSent) {
+        return res.status(500).json({ 
+          error: "Server Configuration Error",
+          message: "DATABASE_URL environment variable is not set. Please configure it in Vercel project settings.",
+          hint: "Go to Vercel Dashboard → Settings → Environment Variables → Add DATABASE_URL"
+        });
+      }
+      return;
+    }
+
     await initialize();
     
     // Process the request through Express
