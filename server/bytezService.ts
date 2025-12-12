@@ -1,28 +1,81 @@
-import Bytez from "bytez.js";
+// Lazy-load Bytez to avoid import-time errors if undici is not available
+let Bytez: any = null;
+let imageSdk: any = null;
+let imageModel: any = null;
+let videoSdk: any = null;
+let videoModel: any = null;
+
+// Lazy initialization function for Bytez SDK
+async function getBytezInstance() {
+  if (!Bytez) {
+    try {
+      const bytezModule = await import("bytez.js");
+      Bytez = bytezModule.default || bytezModule;
+    } catch (error: any) {
+      console.error("❌ Failed to import bytez.js:", error.message);
+      throw new Error(`Failed to load bytez.js: ${error.message}. Make sure 'undici' is installed.`);
+    }
+  }
+  return Bytez;
+}
+
+// Lazy initialization for video model
+async function getVideoModel() {
+  if (!videoModel) {
+    const BytezClass = await getBytezInstance();
+    const videoApiKey = process.env.BYTEZ_VIDEO_API_KEY || "72766a8ab41bb8e6ee002cc4e4dd42c6";
+    if (!videoSdk) {
+      videoSdk = new BytezClass(videoApiKey);
+    }
+    videoModel = videoSdk.model("ali-vilab/text-to-video-ms-1.7b");
+  }
+  return videoModel;
+}
+
+// Lazy initialization for image model
+async function getImageModel() {
+  if (!imageModel) {
+    const BytezClass = await getBytezInstance();
+    const imageApiKey = process.env.BYTEZ_API_KEY || "349c88bd7835622d5760900f6b0f8a51";
+    if (!imageSdk) {
+      imageSdk = new BytezClass(imageApiKey);
+    }
+    imageModel = imageSdk.model("ZB-Tech/Text-to-Image");
+  }
+  return imageModel;
+}
+
 import { GoogleGenerativeAI } from "@google/generative-ai";
-
-// Initialize Bytez SDK for images
-const imageApiKey = process.env.BYTEZ_API_KEY || "349c88bd7835622d5760900f6b0f8a51";
-const imageSdk = new Bytez(imageApiKey);
-const imageModel = imageSdk.model("ZB-Tech/Text-to-Image");
-
-// Initialize Bytez SDK for videos with separate API key (fallback)
-const videoApiKey = process.env.BYTEZ_VIDEO_API_KEY || "72766a8ab41bb8e6ee002cc4e4dd42c6";
-const videoSdk = new Bytez(videoApiKey);
-const videoModel = videoSdk.model("ali-vilab/text-to-video-ms-1.7b");
 
 // Initialize Google Generative AI for video generation
 const googleApiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || "AIzaSyDMUiPPecWYiH0IdfT6ubMQvyXaRBe0EXM";
 const genAI = new GoogleGenerativeAI(googleApiKey);
 
-// Initialize Bytez SDK for dialogue summary with separate API key
-const dialogueApiKey = process.env.BYTEZ_DIALOGUE_API_KEY || "19ddd0a5c384c7365b8e0bd620351a1e";
-const dialogueSdk = new Bytez(dialogueApiKey);
-const dialogueSummaryModel = dialogueSdk.model("svjack/dialogue-summary");
+// Lazy initialization for dialogue summary model
+let dialogueSdk: any = null;
+let dialogueSummaryModel: any = null;
+async function getDialogueSummaryModel() {
+  if (!dialogueSummaryModel) {
+    const BytezClass = await getBytezInstance();
+    const dialogueApiKey = process.env.BYTEZ_DIALOGUE_API_KEY || "19ddd0a5c384c7365b8e0bd620351a1e";
+    if (!dialogueSdk) {
+      dialogueSdk = new BytezClass(dialogueApiKey);
+    }
+    dialogueSummaryModel = dialogueSdk.model("svjack/dialogue-summary");
+  }
+  return dialogueSummaryModel;
+}
 
-// Initialize Bytez SDK for document analysis with separate API key
-const documentApiKey = process.env.BYTEZ_DOCUMENT_API_KEY || "e05bb4f31ced25f7d0bd7340eb8d6688";
-const documentSdk = new Bytez(documentApiKey);
+// Lazy initialization for document analysis SDK
+let documentSdk: any = null;
+async function getDocumentSdk() {
+  if (!documentSdk) {
+    const BytezClass = await getBytezInstance();
+    const documentApiKey = process.env.BYTEZ_DOCUMENT_API_KEY || "e05bb4f31ced25f7d0bd7340eb8d6688";
+    documentSdk = new BytezClass(documentApiKey);
+  }
+  return documentSdk;
+}
 
 export interface GenerateImageOptions {
   prompt: string;
@@ -60,8 +113,9 @@ export async function generateImageWithBytez(
 
     console.log("🎨 Bytez: Enhanced prompt:", enhancedPrompt);
 
-    // Run the image model
-    const result = await imageModel.run(enhancedPrompt);
+    // Get and run the image model (lazy-loaded)
+    const model = await getImageModel();
+    const result = await model.run(enhancedPrompt);
     console.log("🎨 Bytez: Raw result:", JSON.stringify(result, null, 2));
 
     const { error, output } = result;
@@ -303,9 +357,10 @@ export async function generateVideoWithBytez(
     console.log("🎬 Bytez Video: Using API key:", videoApiKey.substring(0, 8) + "...");
     console.log("🎬 Bytez Video: Model:", "ali-vilab/text-to-video-ms-1.7b");
     
-    // Run the video model
+    // Get and run the video model (lazy-loaded)
     console.log("🎬 Bytez Video: Calling model.run()...");
-    const result = await videoModel.run(options.prompt);
+    const model = await getVideoModel();
+    const result = await model.run(options.prompt);
     console.log("🎬 Bytez: Raw video result type:", typeof result);
     console.log("🎬 Bytez: Raw video result:", JSON.stringify(result, null, 2));
 
@@ -456,10 +511,12 @@ export async function generateDialogueSummary(
 
     console.log("📝 Bytez Dialogue: Generating dialogue summary...");
     console.log("📝 Bytez Dialogue: Input text length:", options.text.length);
+    const dialogueApiKey = process.env.BYTEZ_DIALOGUE_API_KEY || "19ddd0a5c384c7365b8e0bd620351a1e";
     console.log("📝 Bytez Dialogue: Using API key:", dialogueApiKey.substring(0, 8) + "...");
 
-    // Run the dialogue summary model
-    const result = await dialogueSummaryModel.run(options.text);
+    // Get and run the dialogue summary model (lazy-loaded)
+    const model = await getDialogueSummaryModel();
+    const result = await model.run(options.text);
     console.log("📝 Bytez Dialogue: Raw result:", JSON.stringify(result, null, 2));
 
     const { error, output } = result;
@@ -517,6 +574,7 @@ export async function analyzeDocumentWithBytez(
   try {
     console.log("📄 Bytez Document: Starting document analysis");
     console.log("📄 Bytez Document: File:", options.fileName, "Type:", options.mimeType);
+    const documentApiKey = process.env.BYTEZ_DOCUMENT_API_KEY || "e05bb4f31ced25f7d0bd7340eb8d6688";
     console.log("📄 Bytez Document: Using API key:", documentApiKey.substring(0, 8) + "...");
 
     // Convert buffer to base64 for Bytez API
@@ -527,7 +585,8 @@ export async function analyzeDocumentWithBytez(
     // Note: Bytez models are typically for text processing, not direct PDF/image analysis
     // For PDFs/images, we'll extract text first or use a text-based model
     const modelName = options.model || "svjack/dialogue-summary"; // Default model for text processing
-    const documentModel = documentSdk.model(modelName);
+    const sdk = await getDocumentSdk();
+    const documentModel = sdk.model(modelName);
 
     // Prepare input - Bytez models typically accept text input
     // For document analysis, we'll try to extract text or send the file data

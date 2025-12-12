@@ -1606,7 +1606,59 @@ var init_dist = __esm({
 });
 
 // server/bytezService.ts
-import Bytez from "bytez.js";
+async function getBytezInstance() {
+  if (!Bytez) {
+    try {
+      const bytezModule = await import("bytez.js");
+      Bytez = bytezModule.default || bytezModule;
+    } catch (error) {
+      console.error("\u274C Failed to import bytez.js:", error.message);
+      throw new Error(`Failed to load bytez.js: ${error.message}. Make sure 'undici' is installed.`);
+    }
+  }
+  return Bytez;
+}
+async function getVideoModel() {
+  if (!videoModel) {
+    const BytezClass = await getBytezInstance();
+    const videoApiKey2 = process.env.BYTEZ_VIDEO_API_KEY || "72766a8ab41bb8e6ee002cc4e4dd42c6";
+    if (!videoSdk) {
+      videoSdk = new BytezClass(videoApiKey2);
+    }
+    videoModel = videoSdk.model("ali-vilab/text-to-video-ms-1.7b");
+  }
+  return videoModel;
+}
+async function getImageModel() {
+  if (!imageModel) {
+    const BytezClass = await getBytezInstance();
+    const imageApiKey = process.env.BYTEZ_API_KEY || "349c88bd7835622d5760900f6b0f8a51";
+    if (!imageSdk) {
+      imageSdk = new BytezClass(imageApiKey);
+    }
+    imageModel = imageSdk.model("ZB-Tech/Text-to-Image");
+  }
+  return imageModel;
+}
+async function getDialogueSummaryModel() {
+  if (!dialogueSummaryModel) {
+    const BytezClass = await getBytezInstance();
+    const dialogueApiKey = process.env.BYTEZ_DIALOGUE_API_KEY || "19ddd0a5c384c7365b8e0bd620351a1e";
+    if (!dialogueSdk) {
+      dialogueSdk = new BytezClass(dialogueApiKey);
+    }
+    dialogueSummaryModel = dialogueSdk.model("svjack/dialogue-summary");
+  }
+  return dialogueSummaryModel;
+}
+async function getDocumentSdk() {
+  if (!documentSdk) {
+    const BytezClass = await getBytezInstance();
+    const documentApiKey = process.env.BYTEZ_DOCUMENT_API_KEY || "e05bb4f31ced25f7d0bd7340eb8d6688";
+    documentSdk = new BytezClass(documentApiKey);
+  }
+  return documentSdk;
+}
 async function generateImageWithBytez(options) {
   try {
     console.log("\u{1F3A8} Bytez: Starting image generation with prompt:", options.prompt);
@@ -1624,7 +1676,8 @@ async function generateImageWithBytez(options) {
       enhancedPrompt = `${enhancedPrompt}, ${styleText}`;
     }
     console.log("\u{1F3A8} Bytez: Enhanced prompt:", enhancedPrompt);
-    const result = await imageModel.run(enhancedPrompt);
+    const model = await getImageModel();
+    const result = await model.run(enhancedPrompt);
     console.log("\u{1F3A8} Bytez: Raw result:", JSON.stringify(result, null, 2));
     const { error, output } = result;
     if (error) {
@@ -1709,7 +1762,8 @@ async function generateVideoWithBytez(options) {
     console.log("\u{1F3AC} Bytez Video: Using API key:", videoApiKey.substring(0, 8) + "...");
     console.log("\u{1F3AC} Bytez Video: Model:", "ali-vilab/text-to-video-ms-1.7b");
     console.log("\u{1F3AC} Bytez Video: Calling model.run()...");
-    const result = await videoModel.run(options.prompt);
+    const model = await getVideoModel();
+    const result = await model.run(options.prompt);
     console.log("\u{1F3AC} Bytez: Raw video result type:", typeof result);
     console.log("\u{1F3AC} Bytez: Raw video result:", JSON.stringify(result, null, 2));
     let error = null;
@@ -1822,8 +1876,10 @@ async function generateDialogueSummary(options) {
     }
     console.log("\u{1F4DD} Bytez Dialogue: Generating dialogue summary...");
     console.log("\u{1F4DD} Bytez Dialogue: Input text length:", options.text.length);
+    const dialogueApiKey = process.env.BYTEZ_DIALOGUE_API_KEY || "19ddd0a5c384c7365b8e0bd620351a1e";
     console.log("\u{1F4DD} Bytez Dialogue: Using API key:", dialogueApiKey.substring(0, 8) + "...");
-    const result = await dialogueSummaryModel.run(options.text);
+    const model = await getDialogueSummaryModel();
+    const result = await model.run(options.text);
     console.log("\u{1F4DD} Bytez Dialogue: Raw result:", JSON.stringify(result, null, 2));
     const { error, output } = result;
     if (error) {
@@ -1863,10 +1919,12 @@ async function analyzeDocumentWithBytez(options) {
   try {
     console.log("\u{1F4C4} Bytez Document: Starting document analysis");
     console.log("\u{1F4C4} Bytez Document: File:", options.fileName, "Type:", options.mimeType);
+    const documentApiKey = process.env.BYTEZ_DOCUMENT_API_KEY || "e05bb4f31ced25f7d0bd7340eb8d6688";
     console.log("\u{1F4C4} Bytez Document: Using API key:", documentApiKey.substring(0, 8) + "...");
     const base64Data = options.fileBuffer.toString("base64");
     const modelName = options.model || "svjack/dialogue-summary";
-    const documentModel = documentSdk.model(modelName);
+    const sdk = await getDocumentSdk();
+    const documentModel = sdk.model(modelName);
     let input;
     if (options.mimeType.startsWith("text/")) {
       input = options.fileBuffer.toString("utf-8");
@@ -1941,24 +1999,21 @@ Base64: ${base64Data.substring(0, 1e3)}...`;
     };
   }
 }
-var imageApiKey, imageSdk, imageModel, videoApiKey, videoSdk, videoModel, googleApiKey, genAI, dialogueApiKey, dialogueSdk, dialogueSummaryModel, documentApiKey, documentSdk;
+var Bytez, imageSdk, imageModel, videoSdk, videoModel, googleApiKey, genAI, dialogueSdk, dialogueSummaryModel, documentSdk;
 var init_bytezService = __esm({
   "server/bytezService.ts"() {
     "use strict";
     init_dist();
-    imageApiKey = process.env.BYTEZ_API_KEY || "349c88bd7835622d5760900f6b0f8a51";
-    imageSdk = new Bytez(imageApiKey);
-    imageModel = imageSdk.model("ZB-Tech/Text-to-Image");
-    videoApiKey = process.env.BYTEZ_VIDEO_API_KEY || "72766a8ab41bb8e6ee002cc4e4dd42c6";
-    videoSdk = new Bytez(videoApiKey);
-    videoModel = videoSdk.model("ali-vilab/text-to-video-ms-1.7b");
+    Bytez = null;
+    imageSdk = null;
+    imageModel = null;
+    videoSdk = null;
+    videoModel = null;
     googleApiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || "AIzaSyDMUiPPecWYiH0IdfT6ubMQvyXaRBe0EXM";
     genAI = new GoogleGenerativeAI(googleApiKey);
-    dialogueApiKey = process.env.BYTEZ_DIALOGUE_API_KEY || "19ddd0a5c384c7365b8e0bd620351a1e";
-    dialogueSdk = new Bytez(dialogueApiKey);
-    dialogueSummaryModel = dialogueSdk.model("svjack/dialogue-summary");
-    documentApiKey = process.env.BYTEZ_DOCUMENT_API_KEY || "e05bb4f31ced25f7d0bd7340eb8d6688";
-    documentSdk = new Bytez(documentApiKey);
+    dialogueSdk = null;
+    dialogueSummaryModel = null;
+    documentSdk = null;
   }
 });
 
