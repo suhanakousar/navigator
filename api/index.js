@@ -1666,7 +1666,7 @@ async function getDocumentSdk() {
 }
 async function generateImageWithBytez(options) {
   try {
-    console.log("\u{1F3A8} Google Gemini (Zenmux): Starting image generation with prompt:", options.prompt);
+    console.log("\u{1F3A8} Clipdrop: Starting image generation with prompt:", options.prompt);
     let enhancedPrompt = options.prompt;
     if (options.style) {
       const styleMap = {
@@ -1680,76 +1680,40 @@ async function generateImageWithBytez(options) {
       const styleText = styleMap[options.style] || options.style;
       enhancedPrompt = `${enhancedPrompt}, ${styleText}`;
     }
-    console.log("\u{1F3A8} Google Gemini (Zenmux): Enhanced prompt:", enhancedPrompt);
-    const zenmuxApiKey = process.env.ZENMUX_API_KEY || "sk-ai-v1-15d0a3a4ca5c49e85b0309eca58431e9b3038e9960dd1843319f1519caaf37a8";
-    const baseUrl4 = "https://zenmux.ai/api/vertex-ai";
-    const model = "google/gemini-3-pro-image-preview";
-    console.log("\u{1F3A8} Google Gemini (Zenmux): Using API key:", zenmuxApiKey.substring(0, 10) + "...");
-    console.log("\u{1F3A8} Google Gemini (Zenmux): Model:", model);
-    const response = await fetch(`${baseUrl4}/v1/models/${model}:generateContent`, {
+    console.log("\u{1F3A8} Clipdrop: Enhanced prompt:", enhancedPrompt);
+    const clipdropApiKey = process.env.CLIPDROP_API_KEY || "2edec80d07d75327ef2263ff6365d69a84a6c76706636c20097ee5e57e7fd6f62857b1a7b16672ee02daddcde1019edf";
+    const apiUrl = "https://clipdrop-api.co/text-to-image/v1";
+    console.log("\u{1F3A8} Clipdrop: Using API key:", clipdropApiKey.substring(0, 10) + "...");
+    console.log("\u{1F3A8} Clipdrop: API URL:", apiUrl);
+    const form = new FormData();
+    form.append("prompt", enhancedPrompt);
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${zenmuxApiKey}`
+        "x-api-key": clipdropApiKey
       },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: enhancedPrompt
-          }]
-        }],
-        generationConfig: {
-          responseModalities: ["TEXT", "IMAGE"]
-        }
-      })
+      body: form
     });
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("\u274C Google Gemini (Zenmux): API error:", response.status, errorText);
+      console.error("\u274C Clipdrop: API error:", response.status, errorText);
       return {
         error: `API request failed: ${response.status} ${response.statusText}. ${errorText}`
       };
     }
-    const result = await response.json();
-    console.log("\u{1F3A8} Google Gemini (Zenmux): Raw response:", JSON.stringify(result, null, 2));
-    const images = [];
-    let textResponse;
-    if (result.candidates && result.candidates.length > 0) {
-      for (const candidate of result.candidates) {
-        if (candidate.content && candidate.content.parts) {
-          for (const part of candidate.content.parts) {
-            if (part.text) {
-              textResponse = part.text;
-              console.log("\u{1F3A8} Google Gemini (Zenmux): Text response:", textResponse);
-            }
-            if (part.inlineData) {
-              const mimeType = part.inlineData.mimeType || "image/png";
-              const data = part.inlineData.data;
-              if (data) {
-                const dataUrl = `data:${mimeType};base64,${data}`;
-                images.push(dataUrl);
-                console.log("\u{1F3A8} Google Gemini (Zenmux): Found image in response");
-              }
-            }
-          }
-        }
-      }
-    }
-    if (images.length === 0) {
-      console.error("\u274C Google Gemini (Zenmux): No images found in response");
-      return {
-        error: textResponse || "No images generated. Check server logs for details.",
-        raw: result
-      };
-    }
-    console.log("\u2705 Google Gemini (Zenmux): Generated", images.length, "image(s)");
+    const arrayBuffer = await response.arrayBuffer();
+    console.log("\u{1F3A8} Clipdrop: Received image buffer, size:", arrayBuffer.byteLength, "bytes");
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Image = buffer.toString("base64");
+    const dataUrl = `data:image/png;base64,${base64Image}`;
+    console.log("\u2705 Clipdrop: Generated image successfully");
     return {
-      url: images[0],
-      urls: images,
-      raw: result
+      url: dataUrl,
+      urls: [dataUrl],
+      raw: { size: arrayBuffer.byteLength }
     };
   } catch (err) {
-    console.error("\u274C Google Gemini (Zenmux) Service Exception:", err);
+    console.error("\u274C Clipdrop Service Exception:", err);
     console.error("\u274C Error stack:", err.stack);
     return {
       error: err.message || err.toString() || "Failed to generate image"
