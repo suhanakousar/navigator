@@ -116,11 +116,12 @@ export interface GenerateImageResult {
   raw?: any;
 }
 
+// Generate image using Google Gemini via Zenmux
 export async function generateImageWithBytez(
   options: GenerateImageOptions
 ): Promise<GenerateImageResult> {
   try {
-    console.log("🎨 Bytez: Starting image generation with prompt:", options.prompt);
+    console.log("🎨 Google Gemini (Zenmux): Starting image generation with prompt:", options.prompt);
     
     // Enhance prompt with style if provided
     let enhancedPrompt = options.prompt;
@@ -137,108 +138,92 @@ export async function generateImageWithBytez(
       enhancedPrompt = `${enhancedPrompt}, ${styleText}`;
     }
 
-    console.log("🎨 Bytez: Enhanced prompt:", enhancedPrompt);
+    console.log("🎨 Google Gemini (Zenmux): Enhanced prompt:", enhancedPrompt);
 
-    // Get and run the image model (lazy-loaded)
-    const model = await getImageModel();
-    const result = await model.run(enhancedPrompt);
-    console.log("🎨 Bytez: Raw result:", JSON.stringify(result, null, 2));
+    // Zenmux API configuration
+    const zenmuxApiKey = process.env.ZENMUX_API_KEY || "sk-ai-v1-15d0a3a4ca5c49e85b0309eca58431e9b3038e9960dd1843319f1519caaf37a8";
+    const baseUrl = "https://zenmux.ai/api/vertex-ai";
+    const model = "google/gemini-3-pro-image-preview";
 
-    const { error, output } = result;
+    console.log("🎨 Google Gemini (Zenmux): Using API key:", zenmuxApiKey.substring(0, 10) + "...");
+    console.log("🎨 Google Gemini (Zenmux): Model:", model);
 
-    if (error) {
-      console.error("❌ Bytez Model Error:", error);
-      const errorMessage = typeof error === 'string' 
-        ? error 
-        : (error as any)?.message || JSON.stringify(error) || "Failed to generate image";
-      return { 
-        error: errorMessage,
-        raw: output 
+    // Make request to Zenmux API
+    const response = await fetch(`${baseUrl}/v1/models/${model}:generateContent`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${zenmuxApiKey}`,
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: enhancedPrompt
+          }]
+        }],
+        generationConfig: {
+          responseModalities: ["TEXT", "IMAGE"]
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ Google Gemini (Zenmux): API error:", response.status, errorText);
+      return {
+        error: `API request failed: ${response.status} ${response.statusText}. ${errorText}`,
       };
     }
 
-    // Log the output structure for debugging
-    console.log("🎨 Bytez: Output structure:", {
-      hasOutput: !!output,
-      outputKeys: output ? Object.keys(output) : [],
-      outputType: typeof output,
-    });
+    const result = await response.json();
+    console.log("🎨 Google Gemini (Zenmux): Raw response:", JSON.stringify(result, null, 2));
 
-    // Handle different output formats
-    if (output) {
-      // Check for images array
-      if (output.images) {
-        console.log("🎨 Bytez: Found images property, type:", typeof output.images);
-        
-        // Multiple images (array)
-        if (Array.isArray(output.images) && output.images.length > 0) {
-          console.log("✅ Bytez: Returning", output.images.length, "images");
-          return {
-            urls: output.images,
-            raw: output,
-          };
+    // Extract images from response
+    const images: string[] = [];
+    let textResponse: string | undefined;
+
+    if (result.candidates && result.candidates.length > 0) {
+      for (const candidate of result.candidates) {
+        if (candidate.content && candidate.content.parts) {
+          for (const part of candidate.content.parts) {
+            // Handle text response
+            if (part.text) {
+              textResponse = part.text;
+              console.log("🎨 Google Gemini (Zenmux): Text response:", textResponse);
+            }
+            
+            // Handle image response (inline_data)
+            if (part.inlineData) {
+              const mimeType = part.inlineData.mimeType || "image/png";
+              const data = part.inlineData.data;
+              if (data) {
+                // Convert base64 to data URL
+                const dataUrl = `data:${mimeType};base64,${data}`;
+                images.push(dataUrl);
+                console.log("🎨 Google Gemini (Zenmux): Found image in response");
+              }
+            }
+          }
         }
-        
-        // Single image URL (string)
-        if (typeof output.images === "string") {
-          console.log("✅ Bytez: Returning single image URL");
-          return {
-            url: output.images,
-            raw: output,
-          };
-        }
-        
-        // First image from array-like object
-        if (output.images[0]) {
-          console.log("✅ Bytez: Returning first image from array");
-          return {
-            url: output.images[0],
-            urls: Array.isArray(output.images) ? output.images : [output.images[0]],
-            raw: output,
-          };
-        }
-      }
-
-      // Check for direct URL property
-      if (output.url) {
-        console.log("✅ Bytez: Returning direct URL");
-        return {
-          url: output.url,
-          raw: output,
-        };
-      }
-
-      // Check if output itself is a URL string
-      if (typeof output === "string" && (output.startsWith("http") || output.startsWith("data:"))) {
-        console.log("✅ Bytez: Output is a URL string");
-        return {
-          url: output,
-          raw: { url: output },
-        };
-      }
-
-      // Check for data URL or base64
-      if (output.data || output.base64) {
-        const imageData = output.data || output.base64;
-        console.log("✅ Bytez: Found data/base64, converting to data URL");
-        const dataUrl = typeof imageData === 'string' && imageData.startsWith('data:') 
-          ? imageData 
-          : `data:image/png;base64,${imageData}`;
-        return {
-          url: dataUrl,
-          raw: output,
-        };
       }
     }
 
-    // If no image found in expected format, return error with full output for debugging
-    console.error("❌ Bytez: No image URL found in response. Full output:", JSON.stringify(output, null, 2));
+    if (images.length === 0) {
+      console.error("❌ Google Gemini (Zenmux): No images found in response");
+      return {
+        error: textResponse || "No images generated. Check server logs for details.",
+        raw: result,
+      };
+    }
+
+    console.log("✅ Google Gemini (Zenmux): Generated", images.length, "image(s)");
     return {
-      error: "No image URL found in response. Check server logs for details.",
-      raw: output,
+      url: images[0],
+      urls: images,
+      raw: result,
     };
   } catch (err: any) {
-    console.error("❌ Bytez Service Exception:", err);
+    console.error("❌ Google Gemini (Zenmux) Service Exception:", err);
     console.error("❌ Error stack:", err.stack);
     return {
       error: err.message || err.toString() || "Failed to generate image",

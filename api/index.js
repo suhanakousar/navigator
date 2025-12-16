@@ -1645,17 +1645,6 @@ async function getVideoModel() {
   }
   return videoModel;
 }
-async function getImageModel() {
-  if (!imageModel) {
-    const BytezClass = await getBytezInstance();
-    const imageApiKey = process.env.BYTEZ_API_KEY || "349c88bd7835622d5760900f6b0f8a51";
-    if (!imageSdk) {
-      imageSdk = new BytezClass(imageApiKey);
-    }
-    imageModel = imageSdk.model("ZB-Tech/Text-to-Image");
-  }
-  return imageModel;
-}
 async function getDialogueSummaryModel() {
   if (!dialogueSummaryModel) {
     const BytezClass = await getBytezInstance();
@@ -1677,7 +1666,7 @@ async function getDocumentSdk() {
 }
 async function generateImageWithBytez(options) {
   try {
-    console.log("\u{1F3A8} Bytez: Starting image generation with prompt:", options.prompt);
+    console.log("\u{1F3A8} Google Gemini (Zenmux): Starting image generation with prompt:", options.prompt);
     let enhancedPrompt = options.prompt;
     if (options.style) {
       const styleMap = {
@@ -1691,81 +1680,76 @@ async function generateImageWithBytez(options) {
       const styleText = styleMap[options.style] || options.style;
       enhancedPrompt = `${enhancedPrompt}, ${styleText}`;
     }
-    console.log("\u{1F3A8} Bytez: Enhanced prompt:", enhancedPrompt);
-    const model = await getImageModel();
-    const result = await model.run(enhancedPrompt);
-    console.log("\u{1F3A8} Bytez: Raw result:", JSON.stringify(result, null, 2));
-    const { error, output } = result;
-    if (error) {
-      console.error("\u274C Bytez Model Error:", error);
-      const errorMessage = typeof error === "string" ? error : error?.message || JSON.stringify(error) || "Failed to generate image";
+    console.log("\u{1F3A8} Google Gemini (Zenmux): Enhanced prompt:", enhancedPrompt);
+    const zenmuxApiKey = process.env.ZENMUX_API_KEY || "sk-ai-v1-15d0a3a4ca5c49e85b0309eca58431e9b3038e9960dd1843319f1519caaf37a8";
+    const baseUrl4 = "https://zenmux.ai/api/vertex-ai";
+    const model = "google/gemini-3-pro-image-preview";
+    console.log("\u{1F3A8} Google Gemini (Zenmux): Using API key:", zenmuxApiKey.substring(0, 10) + "...");
+    console.log("\u{1F3A8} Google Gemini (Zenmux): Model:", model);
+    const response = await fetch(`${baseUrl4}/v1/models/${model}:generateContent`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${zenmuxApiKey}`
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: enhancedPrompt
+          }]
+        }],
+        generationConfig: {
+          responseModalities: ["TEXT", "IMAGE"]
+        }
+      })
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("\u274C Google Gemini (Zenmux): API error:", response.status, errorText);
       return {
-        error: errorMessage,
-        raw: output
+        error: `API request failed: ${response.status} ${response.statusText}. ${errorText}`
       };
     }
-    console.log("\u{1F3A8} Bytez: Output structure:", {
-      hasOutput: !!output,
-      outputKeys: output ? Object.keys(output) : [],
-      outputType: typeof output
-    });
-    if (output) {
-      if (output.images) {
-        console.log("\u{1F3A8} Bytez: Found images property, type:", typeof output.images);
-        if (Array.isArray(output.images) && output.images.length > 0) {
-          console.log("\u2705 Bytez: Returning", output.images.length, "images");
-          return {
-            urls: output.images,
-            raw: output
-          };
+    const result = await response.json();
+    console.log("\u{1F3A8} Google Gemini (Zenmux): Raw response:", JSON.stringify(result, null, 2));
+    const images = [];
+    let textResponse;
+    if (result.candidates && result.candidates.length > 0) {
+      for (const candidate of result.candidates) {
+        if (candidate.content && candidate.content.parts) {
+          for (const part of candidate.content.parts) {
+            if (part.text) {
+              textResponse = part.text;
+              console.log("\u{1F3A8} Google Gemini (Zenmux): Text response:", textResponse);
+            }
+            if (part.inlineData) {
+              const mimeType = part.inlineData.mimeType || "image/png";
+              const data = part.inlineData.data;
+              if (data) {
+                const dataUrl = `data:${mimeType};base64,${data}`;
+                images.push(dataUrl);
+                console.log("\u{1F3A8} Google Gemini (Zenmux): Found image in response");
+              }
+            }
+          }
         }
-        if (typeof output.images === "string") {
-          console.log("\u2705 Bytez: Returning single image URL");
-          return {
-            url: output.images,
-            raw: output
-          };
-        }
-        if (output.images[0]) {
-          console.log("\u2705 Bytez: Returning first image from array");
-          return {
-            url: output.images[0],
-            urls: Array.isArray(output.images) ? output.images : [output.images[0]],
-            raw: output
-          };
-        }
-      }
-      if (output.url) {
-        console.log("\u2705 Bytez: Returning direct URL");
-        return {
-          url: output.url,
-          raw: output
-        };
-      }
-      if (typeof output === "string" && (output.startsWith("http") || output.startsWith("data:"))) {
-        console.log("\u2705 Bytez: Output is a URL string");
-        return {
-          url: output,
-          raw: { url: output }
-        };
-      }
-      if (output.data || output.base64) {
-        const imageData = output.data || output.base64;
-        console.log("\u2705 Bytez: Found data/base64, converting to data URL");
-        const dataUrl = typeof imageData === "string" && imageData.startsWith("data:") ? imageData : `data:image/png;base64,${imageData}`;
-        return {
-          url: dataUrl,
-          raw: output
-        };
       }
     }
-    console.error("\u274C Bytez: No image URL found in response. Full output:", JSON.stringify(output, null, 2));
+    if (images.length === 0) {
+      console.error("\u274C Google Gemini (Zenmux): No images found in response");
+      return {
+        error: textResponse || "No images generated. Check server logs for details.",
+        raw: result
+      };
+    }
+    console.log("\u2705 Google Gemini (Zenmux): Generated", images.length, "image(s)");
     return {
-      error: "No image URL found in response. Check server logs for details.",
-      raw: output
+      url: images[0],
+      urls: images,
+      raw: result
     };
   } catch (err) {
-    console.error("\u274C Bytez Service Exception:", err);
+    console.error("\u274C Google Gemini (Zenmux) Service Exception:", err);
     console.error("\u274C Error stack:", err.stack);
     return {
       error: err.message || err.toString() || "Failed to generate image"
@@ -2038,14 +2022,12 @@ Base64: ${base64Data.substring(0, 1e3)}...`;
     };
   }
 }
-var Bytez, imageSdk, imageModel, videoSdk, videoModel, googleApiKey, genAI, dialogueSdk, dialogueSummaryModel, documentSdk;
+var Bytez, videoSdk, videoModel, googleApiKey, genAI, dialogueSdk, dialogueSummaryModel, documentSdk;
 var init_bytezService = __esm({
   "server/bytezService.ts"() {
     "use strict";
     init_dist();
     Bytez = null;
-    imageSdk = null;
-    imageModel = null;
     videoSdk = null;
     videoModel = null;
     googleApiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || "AIzaSyDMUiPPecWYiH0IdfT6ubMQvyXaRBe0EXM";
