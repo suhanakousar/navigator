@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MarkdownMessage } from "@/components/ui/markdown-message";
+import { useTheme } from "@/components/theme-provider";
 import {
   Mic,
   MicOff,
@@ -34,6 +35,8 @@ import {
   MessageSquare,
   History,
   X,
+  Moon,
+  Sun,
 } from "lucide-react";
 
 interface Message {
@@ -70,6 +73,7 @@ export default function VoiceAssistant() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
 
   // Fetch conversations
   const { data: conversations = [], isLoading: conversationsLoading } = useQuery<Conversation[]>({
@@ -269,48 +273,63 @@ export default function VoiceAssistant() {
   };
 
   return (
-    <AppLayout title="Voice Assistant">
+    <AppLayout title="Voice Assistant" showHeader={false}>
       <div className="flex flex-col h-full">
-        {/* Header with project selector and new chat */}
-        <div className="p-3 md:p-4 border-b border-white/10 shrink-0">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                onClick={handleNewChat}
-                className="glass-input border-white/20"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New Chat
-              </Button>
-              {currentConversationId && (
-                <Badge variant="outline">
-                  {conversations.find((c) => c.id === currentConversationId)?.title || "Chat"}
-                </Badge>
-              )}
-            </div>
-            <div className="w-full md:w-auto">
-              <ProjectSelector
-                value={selectedProjectId}
-                onValueChange={setSelectedProjectId}
-                placeholder="Select project (optional)"
-              />
-            </div>
-          </div>
-        </div>
-
+        {/* Consolidated Header - All options in one place */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "chat" | "history")} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <div className="px-4 pt-3 pb-2 shrink-0">
-            <TabsList className="bg-white/5">
-              <TabsTrigger value="chat">
-                <MessageSquare className="w-4 h-4 mr-2" />
-                Chat
-              </TabsTrigger>
-              <TabsTrigger value="history">
-                <History className="w-4 h-4 mr-2" />
-                History
-              </TabsTrigger>
-            </TabsList>
+          <div className="border-b border-white/10 shrink-0 bg-background/80 backdrop-blur-xl">
+            <div className="px-4 py-2.5 flex flex-col gap-2">
+              {/* Top row: Title, New Chat, Project Selector, Theme Toggle */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <h1 className="text-lg font-semibold truncate">Voice Assistant</h1>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleNewChat}
+                    className="glass-input border-white/20 shrink-0"
+                  >
+                    <Plus className="w-4 h-4 mr-1.5" />
+                    New Chat
+                  </Button>
+                  {currentConversationId && (
+                    <Badge variant="outline" className="shrink-0">
+                      {conversations.find((c) => c.id === currentConversationId)?.title || "Chat"}
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <ProjectSelector
+                    value={selectedProjectId}
+                    onValueChange={setSelectedProjectId}
+                    placeholder="Project"
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                    className="shrink-0"
+                  >
+                    {theme === "dark" ? (
+                      <Sun className="w-4 h-4" />
+                    ) : (
+                      <Moon className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              {/* Bottom row: Tabs */}
+              <TabsList className="bg-white/5 w-full md:w-auto">
+                <TabsTrigger value="chat" className="flex-1 md:flex-initial">
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Chat
+                </TabsTrigger>
+                <TabsTrigger value="history" className="flex-1 md:flex-initial">
+                  <History className="w-4 h-4 mr-2" />
+                  History
+                </TabsTrigger>
+              </TabsList>
+            </div>
           </div>
 
           <TabsContent value="chat" className="flex-1 flex flex-col min-h-0 overflow-hidden">

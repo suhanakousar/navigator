@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GlassCard } from "@/components/ui/glass-card";
 import { signIn, signInWithGoogle, signInWithGithub, resetPassword } from "@/lib/firebaseAuth";
-import { Mail, Lock, Github, ArrowRight, ArrowLeft } from "lucide-react";
+import { Mail, Lock, Github, ArrowRight, ArrowLeft, Home } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Login() {
@@ -105,16 +105,27 @@ export default function Login() {
 
   return (
     <div className="min-h-screen overflow-hidden relative flex items-center justify-center p-4 md:p-8">
-      {/* Background gradients */}
+      {/* Back Button */}
+      <Button
+        variant="ghost"
+        onClick={() => navigate("/")}
+        className="absolute top-4 left-4 md:top-8 md:left-8 z-30 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20"
+      >
+        <ArrowLeft className="w-4 h-4 mr-2" />
+        Back
+      </Button>
+
+      {/* Background gradients - Unique vibrant colors */}
       <div className="fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/40 via-background to-background" />
-        <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-purple-500/30 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute top-1/4 right-0 w-[500px] h-[500px] bg-cyan-500/25 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
-        <div className="absolute bottom-0 left-1/3 w-[400px] h-[400px] bg-pink-500/25 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "2s" }} />
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/60 via-slate-950 to-background" />
+        <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-violet-500/40 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute top-1/4 right-0 w-[500px] h-[500px] bg-blue-500/35 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
+        <div className="absolute bottom-0 left-1/3 w-[400px] h-[400px] bg-fuchsia-500/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "2s" }} />
+        <div className="absolute top-1/2 right-1/4 w-[300px] h-[300px] bg-cyan-400/25 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "0.5s" }} />
         
         {/* Animated gradient waves */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-purple-500/20 to-transparent animate-gradient-shift" />
+        <div className="absolute inset-0 opacity-25">
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-violet-500/30 to-transparent animate-gradient-shift" />
         </div>
       </div>
 
@@ -133,14 +144,14 @@ export default function Login() {
         <GlassCard variant="elevated" className="p-8 md:p-10 backdrop-blur-2xl border-white/20 shadow-2xl shadow-purple-500/20">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-cyan-500/20 mb-4 border border-white/20 overflow-hidden">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/20 to-blue-500/20 mb-4 border border-white/20 overflow-hidden">
               <img 
                 src="/favicon.png" 
                 alt="LifeNavigator Logo" 
                 className="w-full h-full object-contain p-2"
               />
             </div>
-            <h1 className="text-3xl md:text-4xl font-display font-bold mb-2 bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
+            <h1 className="text-3xl md:text-4xl font-display font-bold mb-2 bg-gradient-to-r from-violet-400 via-blue-400 to-fuchsia-400 bg-clip-text text-transparent">
               Welcome Back ✨
             </h1>
             <p className="text-muted-foreground text-sm md:text-base">
@@ -156,7 +167,7 @@ export default function Login() {
                   Email / Username
                 </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-purple-400/60" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-violet-400/70" />
                   <Input
                     id="email"
                     type="email"
@@ -164,7 +175,7 @@ export default function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="pl-10 h-12 bg-white/5 border-purple-500/30 focus:border-purple-400 focus:ring-2 focus:ring-purple-500/50 rounded-xl backdrop-blur-sm transition-all"
+                    className="pl-10 h-12 bg-white/5 border-violet-500/40 focus:border-violet-400 focus:ring-2 focus:ring-violet-500/50 rounded-xl backdrop-blur-sm transition-all"
                   />
                 </div>
               </div>
@@ -175,7 +186,7 @@ export default function Login() {
                   Password
                 </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400/60" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-400/70" />
                   <Input
                     id="password"
                     type="password"
@@ -183,7 +194,7 @@ export default function Login() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="pl-10 h-12 bg-white/5 border-cyan-500/30 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/50 rounded-xl backdrop-blur-sm transition-all"
+                    className="pl-10 h-12 bg-white/5 border-blue-500/40 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/50 rounded-xl backdrop-blur-sm transition-all"
                   />
                 </div>
               </div>
@@ -193,7 +204,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => setShowForgotPassword(true)}
-                  className="text-sm text-purple-400 hover:text-purple-300 transition-colors underline-offset-4 hover:underline"
+                  className="text-sm text-violet-400 hover:text-violet-300 transition-colors underline-offset-4 hover:underline"
                 >
                   Forgot Password?
                 </button>
@@ -203,7 +214,7 @@ export default function Login() {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-12 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 hover:from-purple-600 hover:via-pink-600 hover:to-cyan-600 text-white font-semibold rounded-xl shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300"
+                className="w-full h-12 bg-gradient-to-r from-violet-600 via-blue-600 to-fuchsia-600 hover:from-violet-500 hover:via-blue-500 hover:to-fuchsia-500 text-white font-semibold rounded-xl shadow-lg shadow-violet-500/40 hover:shadow-violet-500/60 transition-all duration-300"
               >
                 {isLoading ? (
                   "Signing in..."
@@ -261,7 +272,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => navigate("/signup")}
-                    className="text-purple-400 hover:text-purple-300 font-medium underline-offset-4 hover:underline transition-colors"
+                    className="text-violet-400 hover:text-violet-300 font-medium underline-offset-4 hover:underline transition-colors"
                   >
                     Sign Up
                   </button>
@@ -290,12 +301,12 @@ export default function Login() {
                     placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="h-12 bg-white/5 border-purple-500/30 focus:border-purple-400 rounded-xl"
+                    className="h-12 bg-white/5 border-violet-500/40 focus:border-violet-400 rounded-xl"
                   />
                 </div>
                 <Button
                   onClick={handleForgotPassword}
-                  className="w-full h-12 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl"
+                  className="w-full h-12 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl shadow-lg shadow-violet-500/30"
                 >
                   Send Reset Link
                 </Button>

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { GlassCard } from "@/components/ui/glass-card";
 import { signUp, signInWithGoogle, signInWithGithub } from "@/lib/firebaseAuth";
-import { Mail, Lock, User, Github, ArrowRight } from "lucide-react";
+import { Mail, Lock, User, Github, ArrowRight, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function SignUp() {
@@ -111,16 +111,27 @@ export default function SignUp() {
 
   return (
     <div className="min-h-screen overflow-hidden relative flex items-center justify-center p-4 md:p-8">
-      {/* Background gradients */}
+      {/* Back Button */}
+      <Button
+        variant="ghost"
+        onClick={() => navigate("/")}
+        className="absolute top-4 left-4 md:top-8 md:left-8 z-30 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20"
+      >
+        <ArrowLeft className="w-4 h-4 mr-2" />
+        Back
+      </Button>
+
+      {/* Background gradients - Unique vibrant colors */}
       <div className="fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/40 via-background to-background" />
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-purple-500/30 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute top-1/4 left-0 w-[500px] h-[500px] bg-cyan-500/25 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
-        <div className="absolute bottom-0 right-1/3 w-[400px] h-[400px] bg-pink-500/25 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "2s" }} />
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-indigo-950/60 to-background" />
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-fuchsia-500/40 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute top-1/4 left-0 w-[500px] h-[500px] bg-rose-500/35 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
+        <div className="absolute bottom-0 right-1/3 w-[400px] h-[400px] bg-amber-500/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "2s" }} />
+        <div className="absolute top-1/2 left-1/4 w-[300px] h-[300px] bg-pink-400/25 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "0.5s" }} />
         
         {/* Animated gradient waves */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-purple-500/20 to-transparent animate-gradient-shift" />
+        <div className="absolute inset-0 opacity-25">
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-fuchsia-500/30 to-transparent animate-gradient-shift" />
         </div>
 
         {/* Floating particles effect */}
@@ -128,7 +139,7 @@ export default function SignUp() {
           {[...Array(20)].map((_, i) => (
             <div
               key={i}
-              className="absolute w-1 h-1 bg-purple-400/40 rounded-full animate-float"
+              className="absolute w-1 h-1 bg-fuchsia-400/40 rounded-full animate-float"
               style={{
                 left: `${Math.random() * 100}%`,
                 top: `${Math.random() * 100}%`,
@@ -155,14 +166,14 @@ export default function SignUp() {
         <GlassCard variant="elevated" className="p-8 md:p-10 backdrop-blur-2xl border-white/20 shadow-2xl shadow-purple-500/20">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 mb-4 border border-white/20 overflow-hidden">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-fuchsia-500/20 to-rose-500/20 mb-4 border border-white/20 overflow-hidden">
               <img 
                 src="/favicon.png" 
                 alt="LifeNavigator Logo" 
                 className="w-full h-full object-contain p-2"
               />
             </div>
-            <h1 className="text-3xl md:text-4xl font-display font-bold mb-2 bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
+            <h1 className="text-3xl md:text-4xl font-display font-bold mb-2 bg-gradient-to-r from-fuchsia-400 via-rose-400 to-amber-400 bg-clip-text text-transparent">
               Create Your Account 🚀
             </h1>
             <p className="text-muted-foreground text-sm md:text-base">
@@ -177,7 +188,7 @@ export default function SignUp() {
                 Full Name
               </Label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-purple-400/60" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-fuchsia-400/70" />
                 <Input
                   id="fullName"
                   type="text"
@@ -185,7 +196,7 @@ export default function SignUp() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
-                  className="pl-10 h-12 bg-white/5 border-purple-500/30 focus:border-purple-400 focus:ring-2 focus:ring-purple-500/50 rounded-xl backdrop-blur-sm transition-all"
+                  className="pl-10 h-12 bg-white/5 border-fuchsia-500/40 focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/50 rounded-xl backdrop-blur-sm transition-all"
                 />
               </div>
             </div>
@@ -196,7 +207,7 @@ export default function SignUp() {
                 Email
               </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400/60" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-rose-400/70" />
                 <Input
                   id="email"
                   type="email"
@@ -204,7 +215,7 @@ export default function SignUp() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="pl-10 h-12 bg-white/5 border-cyan-500/30 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/50 rounded-xl backdrop-blur-sm transition-all"
+                  className="pl-10 h-12 bg-white/5 border-rose-500/40 focus:border-rose-400 focus:ring-2 focus:ring-rose-500/50 rounded-xl backdrop-blur-sm transition-all"
                 />
               </div>
             </div>
@@ -215,7 +226,7 @@ export default function SignUp() {
                 Password
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pink-400/60" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-400/70" />
                 <Input
                   id="password"
                   type="password"
@@ -223,7 +234,7 @@ export default function SignUp() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="pl-10 h-12 bg-white/5 border-pink-500/30 focus:border-pink-400 focus:ring-2 focus:ring-pink-500/50 rounded-xl backdrop-blur-sm transition-all"
+                  className="pl-10 h-12 bg-white/5 border-amber-500/40 focus:border-amber-400 focus:ring-2 focus:ring-amber-500/50 rounded-xl backdrop-blur-sm transition-all"
                 />
               </div>
             </div>
@@ -234,7 +245,7 @@ export default function SignUp() {
                 Confirm Password
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-pink-400/60" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-400/70" />
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -242,7 +253,7 @@ export default function SignUp() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className="pl-10 h-12 bg-white/5 border-pink-500/30 focus:border-pink-400 focus:ring-2 focus:ring-pink-500/50 rounded-xl backdrop-blur-sm transition-all"
+                  className="pl-10 h-12 bg-white/5 border-amber-500/40 focus:border-amber-400 focus:ring-2 focus:ring-amber-500/50 rounded-xl backdrop-blur-sm transition-all"
                 />
               </div>
             </div>
@@ -253,18 +264,18 @@ export default function SignUp() {
                 id="terms"
                 checked={acceptedTerms}
                 onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
-                className="mt-1 border-purple-500/50 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500"
+                className="mt-1 border-fuchsia-500/50 data-[state=checked]:bg-fuchsia-500 data-[state=checked]:border-fuchsia-500"
               />
               <Label
                 htmlFor="terms"
                 className="text-xs text-muted-foreground leading-relaxed cursor-pointer"
               >
                 I agree to the{" "}
-                <a href="#" className="text-purple-400 hover:text-purple-300 underline underline-offset-2">
+                <a href="#" className="text-fuchsia-400 hover:text-fuchsia-300 underline underline-offset-2">
                   Terms of Service
                 </a>{" "}
                 and{" "}
-                <a href="#" className="text-purple-400 hover:text-purple-300 underline underline-offset-2">
+                <a href="#" className="text-fuchsia-400 hover:text-fuchsia-300 underline underline-offset-2">
                   Privacy Policy
                 </a>
               </Label>
@@ -274,7 +285,7 @@ export default function SignUp() {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full h-12 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 hover:from-purple-600 hover:via-pink-600 hover:to-cyan-600 text-white font-semibold rounded-xl shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300"
+              className="w-full h-12 bg-gradient-to-r from-fuchsia-600 via-rose-600 to-amber-600 hover:from-fuchsia-500 hover:via-rose-500 hover:to-amber-500 text-white font-semibold rounded-xl shadow-lg shadow-fuchsia-500/40 hover:shadow-fuchsia-500/60 transition-all duration-300"
             >
               {isLoading ? (
                 "Creating Account..."
@@ -332,7 +343,7 @@ export default function SignUp() {
                 <button
                   type="button"
                   onClick={() => navigate("/login")}
-                  className="text-purple-400 hover:text-purple-300 font-medium underline-offset-4 hover:underline transition-colors"
+                  className="text-fuchsia-400 hover:text-fuchsia-300 font-medium underline-offset-4 hover:underline transition-colors"
                 >
                   Log In
                 </button>
