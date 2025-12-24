@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MarkdownMessage } from "@/components/ui/markdown-message";
 import {
   Mic,
   MicOff,
@@ -347,14 +348,21 @@ export default function VoiceAssistant() {
 
                       <div
                         className={cn(
-                          "max-w-[80%] p-4 rounded-2xl",
+                          "max-w-[80%] rounded-2xl",
                           message.role === "user"
-                            ? "bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-br-sm"
-                            : "bg-white/10 rounded-bl-sm"
+                            ? "bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-br-sm p-4"
+                            : "bg-white/10 rounded-bl-sm p-4 md:p-6"
                         )}
                       >
-                        <p className="text-sm md:text-base">{message.content}</p>
-                        <div className="flex items-center gap-2 mt-2">
+                        {message.role === "assistant" ? (
+                          <MarkdownMessage 
+                            content={message.content} 
+                            className="text-sm md:text-base text-gray-100"
+                          />
+                        ) : (
+                          <p className="text-sm md:text-base whitespace-pre-wrap break-words">{message.content}</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-3 pt-2 border-t border-white/5">
                           <span className="text-xs text-muted-foreground">
                             {message.timestamp.toLocaleTimeString([], {
                               hour: "2-digit",
