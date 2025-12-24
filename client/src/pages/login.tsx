@@ -109,24 +109,25 @@ export default function Login() {
       <Button
         variant="ghost"
         onClick={() => navigate("/")}
-        className="absolute top-4 left-4 md:top-8 md:left-8 z-30 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20"
+        className="absolute top-4 left-4 md:top-8 md:left-8 z-30 bg-slate-800/50 hover:bg-slate-700/50 backdrop-blur-sm border border-slate-700/50 text-slate-300 hover:text-white"
       >
         <ArrowLeft className="w-4 h-4 mr-2" />
         Back
       </Button>
 
-      {/* Background gradients - Unique vibrant colors */}
+      {/* Background gradients - Modern elegant theme */}
       <div className="fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/60 via-slate-950 to-background" />
-        <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-violet-500/40 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute top-1/4 right-0 w-[500px] h-[500px] bg-blue-500/35 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
-        <div className="absolute bottom-0 left-1/3 w-[400px] h-[400px] bg-fuchsia-500/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "2s" }} />
-        <div className="absolute top-1/2 right-1/4 w-[300px] h-[300px] bg-cyan-400/25 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "0.5s" }} />
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" />
+        <div className="absolute top-0 left-0 w-[800px] h-[800px] bg-emerald-500/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 right-0 w-[600px] h-[600px] bg-cyan-500/8 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-1/2 w-[700px] h-[700px] bg-teal-500/10 rounded-full blur-3xl" />
         
-        {/* Animated gradient waves */}
-        <div className="absolute inset-0 opacity-25">
-          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-violet-500/30 to-transparent animate-gradient-shift" />
-        </div>
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+                           linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+          backgroundSize: '50px 50px'
+        }} />
       </div>
 
       {/* Floating 3D Orb - Desktop only */}
@@ -141,20 +142,20 @@ export default function Login() {
 
       {/* Main Login Card */}
       <div className="w-full max-w-md relative z-20">
-        <GlassCard variant="elevated" className="p-8 md:p-10 backdrop-blur-2xl border-white/20 shadow-2xl shadow-purple-500/20">
+        <GlassCard variant="elevated" className="p-8 md:p-10 backdrop-blur-2xl border-white/10 shadow-2xl shadow-emerald-500/10">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/20 to-blue-500/20 mb-4 border border-white/20 overflow-hidden">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 mb-4 border border-emerald-500/20 overflow-hidden">
               <img 
                 src="/favicon.png" 
                 alt="LifeNavigator Logo" 
                 className="w-full h-full object-contain p-2"
               />
             </div>
-            <h1 className="text-3xl md:text-4xl font-display font-bold mb-2 bg-gradient-to-r from-violet-400 via-blue-400 to-fuchsia-400 bg-clip-text text-transparent">
-              Welcome Back ✨
+            <h1 className="text-3xl md:text-4xl font-display font-bold mb-2 text-white">
+              Welcome Back
             </h1>
-            <p className="text-muted-foreground text-sm md:text-base">
+            <p className="text-slate-400 text-sm md:text-base">
               Sign in to continue your AI journey
             </p>
           </div>
@@ -167,7 +168,7 @@ export default function Login() {
                   Email / Username
                 </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-violet-400/70" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-400/60" />
                   <Input
                     id="email"
                     type="email"
@@ -175,7 +176,7 @@ export default function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="pl-10 h-12 bg-white/5 border-violet-500/40 focus:border-violet-400 focus:ring-2 focus:ring-violet-500/50 rounded-xl backdrop-blur-sm transition-all"
+                    className="pl-10 h-12 bg-white/5 border-slate-700/50 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 rounded-xl backdrop-blur-sm transition-all text-white placeholder:text-slate-500"
                   />
                 </div>
               </div>
@@ -186,7 +187,7 @@ export default function Login() {
                   Password
                 </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-400/70" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-400/60" />
                   <Input
                     id="password"
                     type="password"
@@ -194,7 +195,7 @@ export default function Login() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="pl-10 h-12 bg-white/5 border-blue-500/40 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/50 rounded-xl backdrop-blur-sm transition-all"
+                    className="pl-10 h-12 bg-white/5 border-slate-700/50 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 rounded-xl backdrop-blur-sm transition-all text-white placeholder:text-slate-500"
                   />
                 </div>
               </div>
@@ -204,7 +205,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => setShowForgotPassword(true)}
-                  className="text-sm text-violet-400 hover:text-violet-300 transition-colors underline-offset-4 hover:underline"
+                  className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors underline-offset-4 hover:underline"
                 >
                   Forgot Password?
                 </button>
@@ -214,14 +215,14 @@ export default function Login() {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-12 bg-gradient-to-r from-violet-600 via-blue-600 to-fuchsia-600 hover:from-violet-500 hover:via-blue-500 hover:to-fuchsia-500 text-white font-semibold rounded-xl shadow-lg shadow-violet-500/40 hover:shadow-violet-500/60 transition-all duration-300"
+                className="w-full h-12 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold rounded-xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transition-all duration-300"
               >
                 {isLoading ? (
                   "Signing in..."
                 ) : (
                   <>
                     Log In
-                    <ArrowRight className="w-5 h-5" />
+                    <ArrowRight className="w-5 h-5 ml-2" />
                   </>
                 )}
               </Button>
@@ -243,7 +244,7 @@ export default function Login() {
                   onClick={handleGoogleSignIn}
                   disabled={isLoading}
                   variant="outline"
-                  className="h-12 bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30 rounded-xl backdrop-blur-sm transition-all"
+                  className="h-12 bg-slate-800/50 border-slate-700/50 hover:bg-slate-700/50 hover:border-slate-600/50 rounded-xl backdrop-blur-sm transition-all text-slate-300 hover:text-white"
                 >
                   <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                     <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -258,7 +259,7 @@ export default function Login() {
                   onClick={handleGithubSignIn}
                   disabled={isLoading}
                   variant="outline"
-                  className="h-12 bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30 rounded-xl backdrop-blur-sm transition-all"
+                  className="h-12 bg-slate-800/50 border-slate-700/50 hover:bg-slate-700/50 hover:border-slate-600/50 rounded-xl backdrop-blur-sm transition-all text-slate-300 hover:text-white"
                 >
                   <Github className="w-5 h-5 mr-2" />
                   GitHub
@@ -272,7 +273,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => navigate("/signup")}
-                    className="text-violet-400 hover:text-violet-300 font-medium underline-offset-4 hover:underline transition-colors"
+                    className="text-emerald-400 hover:text-emerald-300 font-medium underline-offset-4 hover:underline transition-colors"
                   >
                     Sign Up
                   </button>
@@ -301,12 +302,12 @@ export default function Login() {
                     placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="h-12 bg-white/5 border-violet-500/40 focus:border-violet-400 rounded-xl"
+                    className="h-12 bg-white/5 border-slate-700/50 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 rounded-xl text-white placeholder:text-slate-500"
                   />
                 </div>
                 <Button
                   onClick={handleForgotPassword}
-                  className="w-full h-12 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl shadow-lg shadow-violet-500/30"
+                  className="w-full h-12 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl shadow-lg shadow-emerald-500/30"
                 >
                   Send Reset Link
                 </Button>

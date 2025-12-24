@@ -115,40 +115,25 @@ export default function SignUp() {
       <Button
         variant="ghost"
         onClick={() => navigate("/")}
-        className="absolute top-4 left-4 md:top-8 md:left-8 z-30 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20"
+        className="absolute top-4 left-4 md:top-8 md:left-8 z-30 bg-slate-800/50 hover:bg-slate-700/50 backdrop-blur-sm border border-slate-700/50 text-slate-300 hover:text-white"
       >
         <ArrowLeft className="w-4 h-4 mr-2" />
         Back
       </Button>
 
-      {/* Background gradients - Unique vibrant colors */}
+      {/* Background gradients - Modern elegant theme */}
       <div className="fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-indigo-950/60 to-background" />
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-fuchsia-500/40 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute top-1/4 left-0 w-[500px] h-[500px] bg-rose-500/35 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
-        <div className="absolute bottom-0 right-1/3 w-[400px] h-[400px] bg-amber-500/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "2s" }} />
-        <div className="absolute top-1/2 left-1/4 w-[300px] h-[300px] bg-pink-400/25 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "0.5s" }} />
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" />
+        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-emerald-500/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 left-0 w-[600px] h-[600px] bg-cyan-500/8 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/2 w-[700px] h-[700px] bg-teal-500/10 rounded-full blur-3xl" />
         
-        {/* Animated gradient waves */}
-        <div className="absolute inset-0 opacity-25">
-          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-fuchsia-500/30 to-transparent animate-gradient-shift" />
-        </div>
-
-        {/* Floating particles effect */}
-        <div className="absolute inset-0 overflow-hidden">
-          {[...Array(20)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute w-1 h-1 bg-fuchsia-400/40 rounded-full animate-float"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 5}s`,
-                animationDuration: `${5 + Math.random() * 5}s`,
-              }}
-            />
-          ))}
-        </div>
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+                           linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+          backgroundSize: '50px 50px'
+        }} />
       </div>
 
       {/* Floating 3D Orb - Desktop only */}
@@ -163,20 +148,20 @@ export default function SignUp() {
 
       {/* Main Sign Up Card */}
       <div className="w-full max-w-md relative z-20">
-        <GlassCard variant="elevated" className="p-8 md:p-10 backdrop-blur-2xl border-white/20 shadow-2xl shadow-purple-500/20">
+        <GlassCard variant="elevated" className="p-8 md:p-10 backdrop-blur-2xl border-white/10 shadow-2xl shadow-emerald-500/10">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-fuchsia-500/20 to-rose-500/20 mb-4 border border-white/20 overflow-hidden">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 mb-4 border border-emerald-500/20 overflow-hidden">
               <img 
                 src="/favicon.png" 
                 alt="LifeNavigator Logo" 
                 className="w-full h-full object-contain p-2"
               />
             </div>
-            <h1 className="text-3xl md:text-4xl font-display font-bold mb-2 bg-gradient-to-r from-fuchsia-400 via-rose-400 to-amber-400 bg-clip-text text-transparent">
-              Create Your Account 🚀
+            <h1 className="text-3xl md:text-4xl font-display font-bold mb-2 text-white">
+              Create Your Account
             </h1>
-            <p className="text-muted-foreground text-sm md:text-base">
+            <p className="text-slate-400 text-sm md:text-base">
               Unlock the full power of LifeNavigator AI
             </p>
           </div>
@@ -188,7 +173,7 @@ export default function SignUp() {
                 Full Name
               </Label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-fuchsia-400/70" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-400/60" />
                 <Input
                   id="fullName"
                   type="text"
@@ -196,7 +181,7 @@ export default function SignUp() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
-                  className="pl-10 h-12 bg-white/5 border-fuchsia-500/40 focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/50 rounded-xl backdrop-blur-sm transition-all"
+                  className="pl-10 h-12 bg-white/5 border-slate-700/50 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 rounded-xl backdrop-blur-sm transition-all text-white placeholder:text-slate-500"
                 />
               </div>
             </div>
@@ -207,7 +192,7 @@ export default function SignUp() {
                 Email
               </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-rose-400/70" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-400/60" />
                 <Input
                   id="email"
                   type="email"
@@ -215,7 +200,7 @@ export default function SignUp() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="pl-10 h-12 bg-white/5 border-rose-500/40 focus:border-rose-400 focus:ring-2 focus:ring-rose-500/50 rounded-xl backdrop-blur-sm transition-all"
+                  className="pl-10 h-12 bg-white/5 border-slate-700/50 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 rounded-xl backdrop-blur-sm transition-all text-white placeholder:text-slate-500"
                 />
               </div>
             </div>
@@ -226,7 +211,7 @@ export default function SignUp() {
                 Password
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-400/70" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-400/60" />
                 <Input
                   id="password"
                   type="password"
@@ -234,7 +219,7 @@ export default function SignUp() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="pl-10 h-12 bg-white/5 border-amber-500/40 focus:border-amber-400 focus:ring-2 focus:ring-amber-500/50 rounded-xl backdrop-blur-sm transition-all"
+                  className="pl-10 h-12 bg-white/5 border-slate-700/50 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 rounded-xl backdrop-blur-sm transition-all text-white placeholder:text-slate-500"
                 />
               </div>
             </div>
@@ -245,7 +230,7 @@ export default function SignUp() {
                 Confirm Password
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-400/70" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-400/60" />
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -253,7 +238,7 @@ export default function SignUp() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className="pl-10 h-12 bg-white/5 border-amber-500/40 focus:border-amber-400 focus:ring-2 focus:ring-amber-500/50 rounded-xl backdrop-blur-sm transition-all"
+                  className="pl-10 h-12 bg-white/5 border-slate-700/50 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 rounded-xl backdrop-blur-sm transition-all text-white placeholder:text-slate-500"
                 />
               </div>
             </div>
@@ -264,18 +249,18 @@ export default function SignUp() {
                 id="terms"
                 checked={acceptedTerms}
                 onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
-                className="mt-1 border-fuchsia-500/50 data-[state=checked]:bg-fuchsia-500 data-[state=checked]:border-fuchsia-500"
+                className="mt-1 border-slate-600/50 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
               />
               <Label
                 htmlFor="terms"
-                className="text-xs text-muted-foreground leading-relaxed cursor-pointer"
+                className="text-xs text-slate-400 leading-relaxed cursor-pointer"
               >
                 I agree to the{" "}
-                <a href="#" className="text-fuchsia-400 hover:text-fuchsia-300 underline underline-offset-2">
+                <a href="#" className="text-emerald-400 hover:text-emerald-300 underline underline-offset-2">
                   Terms of Service
                 </a>{" "}
                 and{" "}
-                <a href="#" className="text-fuchsia-400 hover:text-fuchsia-300 underline underline-offset-2">
+                <a href="#" className="text-emerald-400 hover:text-emerald-300 underline underline-offset-2">
                   Privacy Policy
                 </a>
               </Label>
@@ -285,14 +270,14 @@ export default function SignUp() {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full h-12 bg-gradient-to-r from-fuchsia-600 via-rose-600 to-amber-600 hover:from-fuchsia-500 hover:via-rose-500 hover:to-amber-500 text-white font-semibold rounded-xl shadow-lg shadow-fuchsia-500/40 hover:shadow-fuchsia-500/60 transition-all duration-300"
+              className="w-full h-12 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold rounded-xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transition-all duration-300"
             >
               {isLoading ? (
                 "Creating Account..."
               ) : (
                 <>
                   Create Account
-                  <ArrowRight className="w-5 h-5" />
+                  <ArrowRight className="w-5 h-5 ml-2" />
                 </>
               )}
             </Button>
@@ -314,7 +299,7 @@ export default function SignUp() {
                 onClick={handleGoogleSignIn}
                 disabled={isLoading}
                 variant="outline"
-                className="h-12 bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30 rounded-xl backdrop-blur-sm transition-all"
+                className="h-12 bg-slate-800/50 border-slate-700/50 hover:bg-slate-700/50 hover:border-slate-600/50 rounded-xl backdrop-blur-sm transition-all text-slate-300 hover:text-white"
               >
                 <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                   <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -329,7 +314,7 @@ export default function SignUp() {
                 onClick={handleGithubSignIn}
                 disabled={isLoading}
                 variant="outline"
-                className="h-12 bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30 rounded-xl backdrop-blur-sm transition-all"
+                className="h-12 bg-slate-800/50 border-slate-700/50 hover:bg-slate-700/50 hover:border-slate-600/50 rounded-xl backdrop-blur-sm transition-all text-slate-300 hover:text-white"
               >
                 <Github className="w-5 h-5 mr-2" />
                 GitHub
@@ -340,13 +325,13 @@ export default function SignUp() {
             <div className="text-center pt-4">
               <p className="text-sm text-muted-foreground">
                 Already have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => navigate("/login")}
-                  className="text-fuchsia-400 hover:text-fuchsia-300 font-medium underline-offset-4 hover:underline transition-colors"
-                >
-                  Log In
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/login")}
+                    className="text-emerald-400 hover:text-emerald-300 font-medium underline-offset-4 hover:underline transition-colors"
+                  >
+                    Log In
+                  </button>
               </p>
             </div>
           </form>
