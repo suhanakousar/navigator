@@ -270,10 +270,10 @@ export default function VoiceAssistant() {
 
   return (
     <AppLayout title="Voice Assistant">
-      <div className="flex flex-col h-[calc(100vh-3.5rem)] md:h-[calc(100vh-3.5rem)]">
+      <div className="flex flex-col h-full">
         {/* Header with project selector and new chat */}
-        <div className="p-4 md:p-6 border-b border-white/10">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="p-3 md:p-4 border-b border-white/10 shrink-0">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <Button
                 variant="outline"
@@ -299,8 +299,8 @@ export default function VoiceAssistant() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "chat" | "history")} className="flex-1 flex flex-col overflow-hidden">
-          <div className="px-4 md:px-6 pt-4">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "chat" | "history")} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="px-4 pt-3 pb-2 shrink-0">
             <TabsList className="bg-white/5">
               <TabsTrigger value="chat">
                 <MessageSquare className="w-4 h-4 mr-2" />
@@ -313,12 +313,12 @@ export default function VoiceAssistant() {
             </TabsList>
           </div>
 
-          <TabsContent value="chat" className="flex-1 flex flex-col overflow-hidden">
+          <TabsContent value="chat" className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* Main chat area */}
-            <div className="flex-1 flex flex-col lg:flex-row gap-4 p-4 md:p-6 overflow-hidden">
+            <div className="flex-1 flex flex-col lg:flex-row gap-4 p-3 md:p-4 min-h-0 overflow-hidden">
               {/* Chat panel */}
-              <div className="flex-1 flex flex-col min-h-0">
-            <ScrollArea className="flex-1">
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <ScrollArea className="h-full">
               <div className="space-y-4 p-2">
                 {messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12">
@@ -413,7 +413,7 @@ export default function VoiceAssistant() {
 
             {/* Quick actions */}
             {messages.length > 0 && (
-              <div className="flex gap-2 p-2 overflow-x-auto hide-scrollbar">
+              <div className="flex gap-2 p-2 overflow-x-auto hide-scrollbar shrink-0">
                 {quickActions.map((action) => (
                   <Button
                     key={action.label}
@@ -430,7 +430,7 @@ export default function VoiceAssistant() {
             )}
 
             {/* Input area */}
-            <div className="p-2 md:p-4">
+            <div className="p-2 md:p-3 shrink-0">
               <GlassCard className="p-3 md:p-4">
                 {/* Voice waveform */}
                 {isListening && (
@@ -490,8 +490,8 @@ export default function VoiceAssistant() {
         </div>
             </TabsContent>
 
-            <TabsContent value="history" className="flex-1 overflow-hidden">
-              <div className="p-4 md:p-6 h-full overflow-y-auto">
+            <TabsContent value="history" className="flex-1 min-h-0 overflow-hidden">
+              <div className="p-4 md:p-6 h-full overflow-y-auto custom-scrollbar">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="font-semibold">Conversation History</h3>
                   <Badge variant="outline">{conversations.length} conversations</Badge>
