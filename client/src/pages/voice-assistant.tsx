@@ -71,6 +71,8 @@ export default function VoiceAssistant() {
   const [newChatTitle, setNewChatTitle] = useState("");
   const [activeTab, setActiveTab] = useState<"chat" | "history">("chat");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const shouldAutoScrollRef = useRef(true);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
@@ -109,12 +111,49 @@ export default function VoiceAssistant() {
   }, [currentConversationId, conversationMessages]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (shouldAutoScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
+  // Check if user is near bottom of scroll area
+  const checkIfNearBottom = () => {
+    if (!scrollAreaRef.current) return true;
+    const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement;
+    if (!scrollContainer) return true;
+    
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    // Consider "near bottom" if within 150px
+    return distanceFromBottom < 150;
+  };
+
+  // Handle scroll events to detect user scrolling
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (!scrollAreaRef.current) return;
+    
+    const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement;
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      shouldAutoScrollRef.current = checkIfNearBottom();
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, [messages.length]);
+
+  // Only auto-scroll when new messages are added and user is near bottom
+  useEffect(() => {
+    if (messages.length > 0) {
+      // Small delay to ensure DOM is updated
+      setTimeout(() => {
+        if (shouldAutoScrollRef.current) {
+          scrollToBottom();
+        }
+      }, 100);
+    }
+  }, [messages.length]);
 
   // Create conversation mutation
   const createConversationMutation = useMutation({
@@ -172,6 +211,9 @@ export default function VoiceAssistant() {
       return response.json();
     },
     onSuccess: async (data, sentMessage) => {
+      // Enable auto-scroll when assistant responds
+      shouldAutoScrollRef.current = true;
+      
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
@@ -221,6 +263,9 @@ export default function VoiceAssistant() {
 
   const handleSend = async () => {
     if (!input.trim()) return;
+
+    // Enable auto-scroll when user sends a message
+    shouldAutoScrollRef.current = true;
 
     // Create conversation if none exists
     if (!currentConversationId) {
@@ -337,7 +382,7 @@ export default function VoiceAssistant() {
             <div className="flex-1 flex flex-col lg:flex-row gap-4 p-3 md:p-4 min-h-0 overflow-hidden">
               {/* Chat panel */}
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            <ScrollArea className="h-full">
+            <ScrollArea className="h-full" ref={scrollAreaRef}>
               <div className="space-y-4 p-2">
                 {messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12">
